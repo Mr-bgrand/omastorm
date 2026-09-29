@@ -89,6 +89,12 @@ under `review/` for visual review; those stay out of git. README stills are
 `docs/media/readme/` (`bash scripts/capture-readme.sh`). Include review
 captures with a rendering change.
 
+Capture scripts remove their temporary inputs, caches, and raw demo frames on
+exit, including failures and handled signals. Final images and videos remain in
+`review/` and `docs/media/`. Register cleanup immediately after `mktemp`, keep
+helper directories inside the same scratch tree, and stop only processes owned
+by that capture. Build outputs, fixtures, and the shared daemon are preserved.
+
 Honor [DESIGN.md](DESIGN.md): actual scan times, no forecasts, chrome from the
 Omarchy theme, radar color only from `frame.palette`.
 

@@ -10,16 +10,24 @@ cd "$(dirname "$0")/.."
 mkdir -p review docs/media
 export OMASTORM_ROOT="$PWD"
 site="${SITE:-KJAX}"
-demo_dir="$PWD/target/demo-capture"
 scratch=$(mktemp -d /tmp/omastorm-demo-live.XXXXXX)
+demo_dir="$scratch/demo-capture"
+cleanup() {
+  jobs -pr > "$scratch/.jobs"
+  xargs -r kill -KILL < "$scratch/.jobs" 2>/dev/null || true
+  wait || true
+  XDG_RUNTIME_DIR="$scratch/runtime" target/debug/omastorm-engine stop >/dev/null 2>&1 || true
+  rm -rf -- "$scratch"
+}
+trap cleanup EXIT
+trap 'exit 130' INT
+trap 'exit 143' TERM
 export XDG_RUNTIME_DIR="$scratch/runtime" XDG_CACHE_HOME="$scratch/cache"
 export OMASTORM_CONFIG="$demo_dir/config.toml"
 unset OMASTORM_ARCHIVE
 rm -rf "$demo_dir"
 mkdir -p "$XDG_RUNTIME_DIR" "$XDG_CACHE_HOME" "$demo_dir/shaders" "$demo_dir/frames"
 jq -r --arg id "$site" '.sites[] | select(.id==$id) | "center_lat = \(.lat)\ncenter_lon = \(.lon)\nlocked_radar = \"\(.id)\""' engine/data/sites.json > "$OMASTORM_CONFIG"
-cleanup() { target/debug/omastorm-engine stop >/dev/null 2>&1 || true; }
-trap cleanup EXIT
 cp ui/Theme.qml ui/Engine.qml ui/RadarMark.qml ui/RadarMap.qml ui/Sites.js ui/KeysSheet.qml ui/Keys.js ui/Timeline.js ui/Config.qml ui/Toml.js ui/Location.js ui/Metar.js ui/LocationPicker.qml ui/LocationPrompt.qml ui/Remembered.qml ui/PluginSession.qml ui/qmldir "$demo_dir/"
 cp ui/shaders/*.qsb "$demo_dir/shaders/"
 ruby - "$demo_dir" <<'RUBY'

@@ -6,16 +6,26 @@ export OMASTORM_ARCHIVE=${OMASTORM_ARCHIVE:-$PWD/data/raw/KTLX20130520_201643_V0
 export QT_QPA_PLATFORM=offscreen QT_QPA_PLATFORMTHEME=basic
 export QT_QUICK_BACKEND=rhi QSG_RHI_BACKEND=opengl
 scratch=$(mktemp -d /tmp/omastorm-review.XXXXXX)
+cleanup() {
+  jobs -pr > "$scratch/.jobs"
+  xargs -r kill -KILL < "$scratch/.jobs" 2>/dev/null || true
+  wait || true
+  XDG_RUNTIME_DIR="$scratch/runtime" target/debug/omastorm-engine stop >/dev/null 2>&1 || true
+  rm -rf -- "$scratch"
+}
+trap cleanup EXIT
+trap 'exit 130' INT
+trap 'exit 143' TERM
 export XDG_RUNTIME_DIR="$scratch/runtime" XDG_CACHE_HOME="$scratch/cache"
 mkdir -p "$XDG_RUNTIME_DIR" "$XDG_CACHE_HOME"
-trap 'target/debug/omastorm-engine stop >/dev/null 2>&1 || true' EXIT
 for spec in 'minimum 360 360 PIXELS' 'compact 400 420 PIXELS' 'quarter 960 680 PIXELS' 'half 960 1200 PIXELS' 'full 1920 1200 PIXELS' 'glyphs 960 680 GLYPHS' 'stipple 960 680 STIPPLE'; do
   read -r name width height treatment <<< "$spec"
   OMASTORM_WIDTH="$width" OMASTORM_HEIGHT="$height" OMASTORM_STYLE="$treatment" OMASTORM_CAPTURE="$PWD/review/$name.png" bash run.sh
 done
 
 # Change only temporary inputs while the SAME Quickshell instance runs.
-review_theme_dir=$(mktemp -d /tmp/omastorm-theme.XXXXXX)
+review_theme_dir="$scratch/theme"
+mkdir -p "$review_theme_dir"
 printf 'background = "#1a1b26"\nforeground = "#a9b1d6"\naccent = "#7aa2f7"\n' > "$review_theme_dir/colors.toml"
 OMASTORM_THEME_DIR="$review_theme_dir" OMASTORM_WIDTH=960 OMASTORM_HEIGHT=680 OMASTORM_CAPTURE_DELAY=5500 OMASTORM_CAPTURE="$PWD/review/theme-change.png" bash run.sh &
 review_capture_pid=$!
