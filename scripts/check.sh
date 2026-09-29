@@ -18,14 +18,22 @@ set -uo pipefail
 cd "$(dirname "$0")/.." || exit 1
 gpu=0
 scope=all
+prebuilt=0
 for arg in "$@"; do
   case $arg in
     --gpu) gpu=1 ;;
-    all|engine|protocol|ui|rendering) scope=$arg ;;
-    *) echo 'Usage: check.sh [all|engine|protocol|ui|rendering] [--gpu]' >&2; exit 2 ;;
+    --prebuilt) prebuilt=1 ;;
+    all|engine|protocol|ui|installer|rendering) scope=$arg ;;
+    *) echo 'Usage: check.sh [all|engine|protocol|ui|installer|rendering] [--gpu] [--prebuilt]' >&2; exit 2 ;;
   esac
 done
 [[ $scope == rendering ]] && gpu=1
+# CI supplies a disposable tree with a verified pin or compiled candidate.
+# Its cargo wrapper refuses compilation; never use this to bypass engine tests.
+if (( prebuilt )) && { [[ $scope != ui && $scope != installer ]] || (( gpu )); }; then
+  echo '--prebuilt requires ui or installer, without --gpu.' >&2
+  exit 2
+fi
 # Fixed paths in the UI scripts are shared by runs in this checkout.
 # Refuse overlap before deleting scratch files or stopping any test daemon.
 mkdir -p target
@@ -44,6 +52,10 @@ scratch=$PWD/target/check
 logs=$scratch/logs
 rm -rf "$scratch"
 mkdir -p "$logs" "$scratch/tmp"
+# Unix sockets have a 108-byte path limit. Keep their visible prefix short
+# even in CI workspaces and nested disposable trees; contents stay on disk.
+runtime_alias=$(mktemp -d /tmp/omastorm-runtime.XXXXXX)
+ln -s "$scratch" "$runtime_alias/tree"
 # The check scripts' mktemp calls and the engine installer's work dir land here.
 export TMPDIR=$scratch/tmp
 printf 'step\tstatus\tseconds\n' > "$logs/timings.tsv"
@@ -54,11 +66,12 @@ plugin_alias=
 cleanup() {
   for pid in "${lanes[@]}"; do kill "$pid" 2> /dev/null; done
   wait 2> /dev/null
-  for runtime in "$scratch"/r-*; do
+  for runtime in "$runtime_alias/tree"/r-*; do
     [[ -d $runtime ]] && XDG_RUNTIME_DIR=$runtime target/debug/omastorm-engine stop > /dev/null 2>&1
   done
   rm -rf "$scratch"/r-* "$scratch/tmp"
   [[ -z $plugin_alias ]] || rm -rf "$plugin_alias"
+  rm -rf "$runtime_alias"
 }
 trap cleanup EXIT
 trap 'kill "${child:-}" 2> /dev/null; exit 130' INT TERM
@@ -83,7 +96,7 @@ lane() { # name, checks...: the checks in order, sharing one scratch daemon
   local rc=0
   # Leave room for Quickshell’s socket suffix in nested worktrees.
   unset WAYLAND_DISPLAY
-  export XDG_RUNTIME_DIR=$scratch/r-$1
+  export XDG_RUNTIME_DIR=$runtime_alias/tree/r-$1
   shift
   mkdir -p "$XDG_RUNTIME_DIR"
   trap 'kill "${child:-}" 2> /dev/null; exit 143' TERM
@@ -103,12 +116,9 @@ tests() { # the compiled tests; the cap ends a hung test and its daemons
   esac
   return $rc
 }
-engine_protocol=$(sed -n 's/^pub const VERSION: u32 = \([0-9][0-9]*\);$/\1/p' engine/src/protocol.rs)
-ui_protocol=$(rg -o 'message\.v !== ([0-9]+)' -r '$1' ui/Engine.qml)
-if [[ -z $engine_protocol || -z $ui_protocol ]]; then
-  echo 'Could not determine engine/UI protocol versions.'
-  exit 1
-fi
+if ! protocol=$(bash scripts/ci-protocol.sh); then exit 1; fi
+engine_protocol=$(sed -n 's/^engine=//p' <<< "$protocol")
+ui_protocol=$(sed -n 's/^ui=//p' <<< "$protocol")
 if (( gpu )) && [[ $engine_protocol != "$ui_protocol" ]]; then
   echo 'Rendering checks require matching engine/UI protocols.' >&2
   exit 1
@@ -126,21 +136,28 @@ case $scope in
   engine) build+=(--bin omastorm-engine) ;;
   protocol) build+=(--test protocol) ;;
   rendering) build+=(--test rendering) ;;
-  ui) build=(build --offline --locked) ;;
+  ui|installer) build=(build --offline --locked) ;;
 esac
-if step build bash scripts/cargo.sh "${build[@]}"; then
+if (( prebuilt )); then
+  build_command=(test -x target/debug/omastorm-engine)
+else
+  build_command=(bash scripts/cargo.sh "${build[@]}")
+fi
+if step build "${build_command[@]}"; then
   built=1
   # The UI checks assume the archived KTLX scan; a fresh daemon shows it when
   # OMASTORM_ARCHIVE names the volume (a shipped daemon starts with no frame).
   export OMASTORM_ARCHIVE="$PWD/data/raw/KTLX20130520_201643_V06.gz"
   tests & lanes+=($!)
-  if [[ $scope == all || $scope == ui ]]; then
+  if [[ $scope == all || $scope == ui || $scope == installer ]]; then
     # Validate the candidate independently of the currently shipped client.
-    step engine-binary bash scripts/check-engine-binary.sh target/debug/omastorm-engine || failed=1
-    step engine-release bash scripts/check-engine-release.sh || failed=1
+    if (( ! prebuilt )); then
+      step engine-binary bash scripts/check-engine-binary.sh target/debug/omastorm-engine || failed=1
+      step engine-release bash scripts/check-engine-release.sh || failed=1
+    fi
     # A split protocol release keeps the old UI and its published pin together.
     # Test that pair in a disposable tree; never overwrite the candidate binary.
-    if [[ $engine_protocol != "$ui_protocol" ]]; then
+    if (( ! prebuilt )) && [[ $engine_protocol != "$ui_protocol" ]]; then
       if ! step pinned-ui-setup bash scripts/prepare-pinned-ui-check.sh "$scratch/plugin"; then
         exit 1
       fi
@@ -152,10 +169,16 @@ if step build bash scripts/cargo.sh "${build[@]}"; then
       echo "UI checks: published pin (protocol v$ui_protocol); candidate engine: v$engine_protocol"
     fi
     # check-picker and check-keys select stations for real, so they run last.
-    lane window check-engine-ui check-radar-handoff check-map-sites check-map-network check-location check-picker check-keys & lanes+=($!)
-    wait "${lanes[-1]}" || failed=1
-    unset 'lanes[-1]'
-    lane alone check-ip-location check-bind check-link-plugin check-launcher check-theme check-map-tiles test-engine-pin check-popover check-reconnect & lanes+=($!)
+    if [[ $scope != installer ]]; then
+      lane window check-engine-ui check-radar-handoff check-map-sites check-map-network check-location check-picker check-keys & lanes+=($!)
+      wait "${lanes[-1]}" || failed=1
+      unset 'lanes[-1]'
+    fi
+    if [[ $scope == installer ]]; then
+      lane alone check-bind check-link-plugin check-launcher test-engine-pin & lanes+=($!)
+    else
+      lane alone check-ip-location check-bind check-link-plugin check-launcher check-theme check-map-tiles test-engine-pin check-popover check-reconnect & lanes+=($!)
+    fi
     wait "${lanes[-1]}" || failed=1
     unset 'lanes[-1]'
   fi

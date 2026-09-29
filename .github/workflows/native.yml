@@ -1,0 +1,81 @@
+name: Native engine checks
+
+on:
+  workflow_call:
+    inputs:
+      arch:
+        required: true
+        type: string
+      runner:
+        required: true
+        type: string
+      engine_checks:
+        required: true
+        type: boolean
+      release_checks:
+        required: true
+        type: boolean
+
+permissions:
+  contents: read
+
+jobs:
+  native:
+    name: Native ${{ inputs.arch }}
+    runs-on: ${{ inputs.runner }}
+    timeout-minutes: 25
+    env:
+      XDG_CACHE_HOME: ${{ github.workspace }}/target/ci-cache
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Native build prerequisites
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential cmake pkg-config binutils socat
+      - uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c # v4.3.0
+        with:
+          install_args: rust jq ripgrep
+      - uses: actions/cache@caa296126883cff596d87d8935842f9db880ef25 # v5
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target/debug
+            target/${{ inputs.arch }}-unknown-linux-gnu
+          key: rust-${{ inputs.arch }}-${{ hashFiles('Cargo.lock', 'mise.toml') }}-${{ github.sha }}
+          restore-keys: rust-${{ inputs.arch }}-${{ hashFiles('Cargo.lock', 'mise.toml') }}-
+      - name: Verify engine tag
+        run: |
+          version=$(awk -F'"' '/^version = /{print $2; exit}' engine/Cargo.toml)
+          if [[ "$GITHUB_REF" == refs/tags/engine-* ]]; then
+            test "$GITHUB_REF_NAME" = "engine-$version"
+          fi
+      - name: Extract verified fixtures and fetch locked dependencies
+        run: |
+          bash scripts/extract-fixtures.sh
+          bash scripts/cargo.sh fetch --locked
+      - name: Engine formatting and Clippy
+        if: inputs.arch == 'x86_64' && inputs.engine_checks
+        run: |
+          bash scripts/cargo.sh fmt --check
+          bash scripts/cargo.sh clippy --offline --locked --all-targets -- -D warnings
+      - name: Native unit and protocol tests
+        if: inputs.engine_checks
+        run: mise test
+      - name: Build release-tool fixture binary
+        if: inputs.arch == 'x86_64' && inputs.release_checks && !inputs.engine_checks
+        run: mise build
+      - name: Release tooling regression checks
+        if: inputs.arch == 'x86_64' && inputs.release_checks
+        run: bash scripts/check-engine-release.sh
+      - name: Build native release binary
+        run: |
+          mise build-release
+          bash scripts/check-engine-binary.sh target/dist/omastorm-engine-${{ inputs.arch }}-unknown-linux-gnu
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: engine-native-${{ inputs.arch }}
+          path: target/dist/omastorm-engine-${{ inputs.arch }}-unknown-linux-gnu*
+          if-no-files-found: error

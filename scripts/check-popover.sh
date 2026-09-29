@@ -32,11 +32,35 @@ pid=
 cleanup() {
   [[ -z $pid ]] || kill "$pid" 2>/dev/null || true
   target/debug/omastorm-engine stop >/dev/null 2>&1 || true
-  # The textures and the seeded frame ring go; ui.log stays for reading.
+  # Runtime files go; UI logs and the disposable harness stay for reading.
   rm -rf "$scratch/r" "$scratch/cache"
 }
 trap cleanup EXIT
-quickshell -p ui/PopoverHarness.qml > "$scratch/ui.log" 2>&1 &
+# Instrument disposable copies only: production controls emit their commands,
+# but playback tests consume replayed state instead of running engine policy.
+cp -a ui "$scratch/ui"
+cp tests/popover-playback.js "$scratch/ui/PlaybackTest.js"
+python3 - "$scratch/ui" <<'PY_HARNESS'
+from pathlib import Path
+import sys
+root = Path(sys.argv[1])
+p = root / 'Engine.qml'
+s = p.read_text().replace('    id: engine', '    id: engine\n    property bool testPlayback: false\n    property var testCommands: []', 1)
+s = s.replace('    function send(command) {', '    function send(command) {\n        if (testPlayback) { testCommands = testCommands.concat([command]); return; }', 1)
+p.write_text(s)
+p = root / 'RadarWindow.qml'
+p.write_text(p.read_text().replace('    id: app', '    id: app\n    property alias testEngine: engine', 1))
+p = root / 'PopoverHarness.qml'
+s = p.read_text().replace('import QtQuick', 'import "PlaybackTest.js" as PlaybackTest\nimport QtQuick', 1)
+s = s.replace('        function play(): void', '''        function beginPlayback(): void { PlaybackTest.begin(popover.engine, panel.testEngine); }
+        function playbackFrame(index: int, playing: bool): void { PlaybackTest.frame(index, playing); }
+        function clearPlaybackCommands(): void { PlaybackTest.clearCommands(); }
+        function playbackCommands(): string { return PlaybackTest.commands(); }
+        function endPlayback(): void { PlaybackTest.end(); }
+        function play(): void''', 1)
+p.write_text(s)
+PY_HARNESS
+quickshell -p "$scratch/ui/PopoverHarness.qml" > "$scratch/ui.log" 2>&1 &
 pid=$!
 call() { quickshell ipc --pid "$pid" call popover "$@"; }
 status() { call status; }
@@ -49,29 +73,14 @@ until_status() {
   done
   fail "Timed out: $filter"
 }
-# Require every transition in both clients, rather than waiting past an
-# incorrect intermediate frame until the expected frame eventually appears.
-expect_frames() {
-  local previous="popover-test-$1" expected actual frame window matched
-  shift
-  for expected in "$@"; do
-    expected="popover-test-$expected"
-    matched=0
-    for _ in {1..100}; do
-      actual=$(status)
-      frame=$(jq -r .frame <<< "$actual")
-      window=$(jq -r .windowFrame <<< "$actual")
-      [[ $frame == "$previous" || $frame == "$expected" ]] || fail "Unexpected frame: $previous -> $frame (expected $expected)"
-      [[ $window == "$previous" || $window == "$expected" ]] || fail "Unexpected window frame: $previous -> $window (expected $expected)"
-      if [[ $frame == "$expected" && $window == "$expected" ]]; then
-        matched=1
-        break
-      fi
-      sleep .05
-    done
-    (( matched )) || fail "Playback never advanced from $previous to $expected"
-    previous=$expected
-  done
+# A UI control must send exactly its command and wait for engine state.
+expect_command() {
+  local client=$1 expected=$2
+  shift 2
+  call clearPlaybackCommands
+  "$@"
+  call playbackCommands | jq -e --arg client "$client" --argjson expected "$expected" \
+    '.[$client] == [$expected]' >/dev/null || fail "Wrong $client command: $(call playbackCommands)"
 }
 until_status '.site == "KTLX" and .windowSite == "KTLX"'
 before=$(status | jq -r .frame)
@@ -93,82 +102,55 @@ call capture "$PWD/review/popover-archived.png"
 for _ in {1..50}; do [[ -s review/popover-archived.png ]] && break; sleep .1; done
 sock="$XDG_RUNTIME_DIR/omastorm/engine.sock"
 tell() { printf '%s\n' "$@" | socat -t0.2 - "UNIX-CONNECT:$sock" >/dev/null; }
-# Four deterministic complete frames, using the archived fixture's metadata
-# and PNGs, exercise the real catalog/transport without waiting two volumes.
-# Their start times are minutes ago: the catalog evicts frames older than
-# two hours when a station is selected.
-timeout 2 socat -t0.2 - "UNIX-CONNECT:$sock" < /dev/null | jq -c 'select(.type == "state")' | head -n1 > "$scratch/engine-state.json"
-ruby - "$scratch" <<'RUBY_SEED'
-require 'json'
-require 'fileutils'
-require 'open3'
-scratch = ARGV.fetch(0)
-frame = JSON.parse(File.read("#{scratch}/engine-state.json")).fetch('frame')
-dir = "#{scratch}/cache/omastorm/frames"
-FileUtils.mkdir_p("#{dir}/KTLX")
-sql = []
-now_ms = (Time.now.to_f * 1000).to_i
-4.times do |i|
-  f = Marshal.load(Marshal.dump(frame))
-  f.delete('kind')
-  f['id'] = "popover-test-#{i}"
-  f['scanTime'] = "2013-05-20T20:#{10+i*5}:00Z"
-  f['sweepEnd'] = f['scanTime']
-  tex = "KTLX/test-#{i}-sweep.png"; lut = "KTLX/test-#{i}-lut.png"
-  FileUtils.cp("#{scratch}/r/omastorm/#{frame['texture']}", "#{dir}/#{tex}")
-  FileUtils.cp("#{scratch}/r/omastorm/#{frame['azimuthLut']}", "#{dir}/#{lut}")
-  f['texture'] = ''; f['azimuthLut'] = ''
-  values = [f['id'], 'KTLX', 'REF', f['elevationDeg'], now_ms - 1200000 + i*300000,
-            f['scanTime'], f['sweepEnd'], 'synthetic popover lifecycle test', 0, JSON.generate(f), tex, lut]
-  sql << "INSERT INTO frames VALUES (#{values.map { |v| v.is_a?(Numeric) ? v.to_s : "'" + v.gsub("'", "''") + "'" }.join(',')});"
-end
-_, err, result = Open3.capture3('sqlite3', "#{dir}/catalog.sqlite", stdin_data: sql.join("\n"))
-abort err unless result.success?
-RUBY_SEED
-tell '{"type":"select_site","id":"KTLX"}' '{"type":"seek","id":"popover-test-0"}'
-until_status '.frame == "popover-test-0"'
-call expand
-until_status '.window and .windowFrame == "popover-test-0" and (.windowPlaying | not)'
-# A configured lock applies immediately; subsequently selecting another
-# station must survive expansion, and closing the window leaves it there.
-printf 'locked_radar = "KFCX"\n' > "$OMASTORM_CONFIG"
-until_status '.site == "KFCX"'
-tell '{"type":"select_site","id":"KTLX"}' '{"type":"lock","enabled":true}' '{"type":"seek","id":"popover-test-0"}'
-until_status '.frame == "popover-test-0"'
-call step 1
-until_status '.frame == "popover-test-1" and .windowFrame == "popover-test-1"'
-# The popover Play button loops from the selected completed scan.
-call play
+# Replay arbitrary frame orders: the UI follows state and never chooses
+# the engine's next frame or loop boundary. Engine unit tests own that policy.
+call beginPlayback
+until_status '.frame == "ui-playback-1" and .windowFrame == "ui-playback-1" and (.playing | not)'
+expect_command popover '{"type":"step","delta":1}' call step 1
+until_status '.frame == "ui-playback-1" and .windowFrame == "ui-playback-1"'
+call playbackFrame 3 false
+until_status '.frame == "ui-playback-3" and .windowFrame == "ui-playback-3"'
+expect_command popover '{"type":"play"}' call play
+until_status '(.playing | not) and (.windowPlaying | not)'
+call playbackFrame 0 true
+until_status '.frame == "ui-playback-0" and .windowFrame == "ui-playback-0" and .playing and .windowPlaying'
+expect_command popover '{"type":"pause"}' call play
 until_status '.playing and .windowPlaying'
-expect_frames 1 2 3 1 2 3 1
-call play
-until_status '.playing == false'
-# Home then Space deliberately chooses the full history.
-quickshell ipc --pid "$pid" call keys run oldest
-until_status '.frame == "popover-test-0" and .windowFrame == "popover-test-0"'
-quickshell ipc --pid "$pid" call keys run play
-until_status '.playing and .windowPlaying'
-expect_frames 0 1 2 3 0
-quickshell ipc --pid "$pid" call keys run play
-until_status '.playing == false'
-# The window's Space action uses the same selected-frame loop.
-tell '{"type":"seek","id":"popover-test-1"}'
-until_status '.frame == "popover-test-1" and .windowFrame == "popover-test-1"'
-quickshell ipc --pid "$pid" call keys run play
-until_status '.playing and .windowPlaying'
-expect_frames 1 2 3 1
-quickshell ipc --pid "$pid" call keys run play
-until_status '.playing == false'
-# Starting on the newest completed scan also selects the full loop.
-tell '{"type":"seek","id":"popover-test-3"}'
-until_status '.frame == "popover-test-3" and .windowFrame == "popover-test-3"'
-call play
-until_status '.playing and .windowPlaying'
-expect_frames 3 0 1 2 3 0
-# Expand while playing forwards the shared position instead of seek/pause.
+call playbackFrame 2 false
+until_status '.frame == "ui-playback-2" and .windowFrame == "ui-playback-2" and (.playing | not) and (.windowPlaying | not)'
+expect_command window '{"type":"seek","id":"ui-playback-0"}' quickshell ipc --pid "$pid" call keys run oldest
+call playbackFrame 0 false
+until_status '.frame == "ui-playback-0" and .windowFrame == "ui-playback-0"'
+expect_command window '{"type":"play"}' quickshell ipc --pid "$pid" call keys run play
+for index in 3 1 0; do
+  call playbackFrame "$index" true
+  until_status ".frame == \"ui-playback-$index\" and .windowFrame == \"ui-playback-$index\" and .playing and .windowPlaying"
+done
+expect_command window '{"type":"pause"}' quickshell ipc --pid "$pid" call keys run play
+call playbackFrame 3 false
+until_status '(.playing | not) and (.windowPlaying | not)'
+expect_command popover '{"type":"play"}' call play
+call playbackFrame 1 true
+until_status '.frame == "ui-playback-1" and .windowFrame == "ui-playback-1" and .playing and .windowPlaying'
+# Expanding and closing preserve supplied state without sending seek/pause.
+call clearPlaybackCommands
 call reopen
 call expand
-until_status '.playing and .windowPlaying and .site == "KTLX"'
+until_status '.window and .playing and .windowPlaying and .frame == "ui-playback-1" and .windowFrame == "ui-playback-1"'
+call closeWindow
+until_status '.window == false and .frame == "ui-playback-1" and .playing'
+call playbackCommands | jq -e '.popover == [] and .window == []' >/dev/null \
+  || fail 'Expand/close sent a playback command'
+call endPlayback
+# A configured lock applies immediately; opening and closing the window
+# must preserve an explicitly supplied selection.
+printf 'locked_radar = "KFCX"\n' > "$OMASTORM_CONFIG"
+until_status '.site == "KFCX"'
+tell '{"type":"select_site","id":"KTLX"}' '{"type":"lock","enabled":true}'
+until_status '.site == "KTLX"'
+call reopen
+call expand
+until_status '.window and .site == "KTLX" and .windowSite == "KTLX"'
 call closeWindow
 until_status '.window == false and .site == "KTLX"'
 # An update on disk that the shell has not loaded: the manifest's version
