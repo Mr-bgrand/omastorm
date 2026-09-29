@@ -121,9 +121,35 @@ checkout are refused before touching scratch files. Scratch and logs live under
 `target/check/`; runtime files are removed on exit, logs remain until the next
 run. `target/check/logs/timings.tsv` records step durations and total wall time.
 Step times overlap and should not be summed to infer wall time. The checks read
-`target/debug/`, so leave `CARGO_TARGET_DIR` unset. CI lints, tests, and packages
-both Linux architectures; GPU and QML checks still run locally. Report required
-checks that could not run explicitly.
+`target/debug/`, so leave `CARGO_TARGET_DIR` unset. CI runs on pull requests and pushes to `main` (avoiding duplicate branch/PR
+runs), plus engine tags and manual runs. It selects jobs from the complete change
+diff. Engine changes run native tests
+and release builds on both Linux architectures, with formatting and Clippy once,
+plus UI integration. UI-only changes skip Rust builds and tests and run against
+the verified published engine pin. When engine and UI protocol versions match,
+engine changes run UI checks against the source-built candidate; differing
+versions keep UI checks on the pin and validate the candidate separately.
+Version equality declares compatibility; UI integration checks test behavior.
+Playback UI tests replay supplied frames and record emitted controls; they do
+not assert frame order or loop policy. Those regressions live in the engine's
+Rust tests, so an older compatible pin does not need unreleased engine behavior.
+
+Installer-only changes run ShellCheck and focused installer/launcher checks.
+Pin changes verify published checksums for both architectures and run UI checks.
+Release-tool changes exercise tooling regressions, native builds, binary smoke
+tests, and packaging without Rust lint/unit tests. Docs, branding, and
+site-only changes get whitespace and changed-JSON validation. Mixed changes run
+the union of their groups. CI/toolchain changes and unknown paths run everything,
+as do engine tags and manual workflow runs. Shell changes also run ShellCheck.
+The selected groups appear in the workflow summary.
+
+UI CI runs in an Arch container with Qt Quick's OpenGL RHI and Mesa rendering;
+it reuses verified or source-built binaries without compiling Rust. This covers
+headless integration; desktop GPU rendering tests and review captures remain
+required locally for shader, sampling, or camera changes. The final `CI` job
+requires every selected job to pass, including jobs that fail to start. Configure
+branch protection to require that single check. Report required checks that could
+not run explicitly.
 
 For shader, sampling, or camera changes, also run `mise check --gpu` and
 `bash scripts/capture-review.sh`, inspect the images in `review/`, and include
