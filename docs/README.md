@@ -8,6 +8,7 @@ use. Nothing in this directory is required to run Omastorm.
 | [DESIGN.md](../DESIGN.md) | Product rules. Read before a behaviour change. |
 | [CONTRIBUTING.md](../CONTRIBUTING.md) | Setup, checks, issues, and pull requests. |
 | [configuration.md](configuration.md) | Complete `config.toml` / `state.json` contract. |
+| [verification-baseline.md](verification-baseline.md) | Focused checks, Timeline ordering, and recorded-input measurements. |
 | [protocol.md](protocol.md) | Engine ↔ UI socket. |
 | [radar-fetch.md](radar-fetch.md) | How live and archived Level II bytes are fetched. |
 | [grid-adapters.md](grid-adapters.md) | Grid mosaic adapters for international sources. |

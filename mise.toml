@@ -63,8 +63,29 @@ description = "Rust unit and socket tests"
 run = "cargo test --offline --locked"
 
 [tasks.check]
-description = "Integration suite against a scratch daemon; run before every commit (--gpu adds the rendering test)"
+description = "Complete PR readiness suite against scratch daemons (--gpu adds rendering)"
 run = "bash scripts/check.sh"
+
+# Focused checks for iteration; the complete applicable suite gates readiness.
+[tasks.check-engine]
+description = "Engine formatting, Clippy, and unit tests"
+run = "bash scripts/check.sh engine"
+
+[tasks.check-protocol]
+description = "Socket and protocol integration tests"
+run = "bash scripts/check.sh protocol"
+
+[tasks.check-ui]
+description = "UI, launcher, installer, and candidate binary checks"
+run = "bash scripts/check.sh ui"
+
+[tasks.check-rendering]
+description = "Ignored GPU rendering tests (desktop OpenGL required)"
+run = "bash scripts/check.sh rendering"
+
+[tasks.bench-engine]
+description = "Recorded-input engine baseline; no live provider requests"
+run = "python3 scripts/bench-engine.py"
 
 [tasks.engine-bump]
 description = "Bump engine/Cargo.toml and Cargo.lock to the next patch (or -- <version>); publishes nothing"
