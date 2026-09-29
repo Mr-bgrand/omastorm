@@ -8,6 +8,8 @@ labels: bug
 
 **What you expected**
 
+**Steps to reproduce**
+
 **Setup**
 
 - Omarchy version (`omarchy-version`):
@@ -21,3 +23,6 @@ The last lines of `$XDG_RUNTIME_DIR/omastorm/engine.log`, if the engine is invol
 
 Setup, logs, and how to file a useful report:
 [CONTRIBUTING.md](../../CONTRIBUTING.md#issues).
+
+A maintainer must apply `approved` before you open a pull request for a fix.
+Opening a bug report alone is not approval.

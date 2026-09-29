@@ -1,8 +1,9 @@
 # Contributing
 
 Report bugs and propose work in [GitHub issues](https://github.com/wesleygrimes/omastorm/issues).
-Track pending work in issues and projects; discuss new features there before
-implementation.
+Every pull request requires an issue approved by a maintainer before the PR is
+opened. This applies to bug fixes and feature requests, including draft PRs
+and automated PRs.
 
 ## Issues
 
@@ -17,8 +18,30 @@ covering the failure, not a single line. If the engine never installed, attach
 `bootstrap.log` from the same directory too. Paths are in the
 [README](README.md#troubleshooting).
 
-For a feature, open an issue first: what should change on screen, why it belongs
+For a feature, use the
+[feature request template](https://github.com/wesleygrimes/omastorm/issues/new?template=feature-request.md): what should change on screen, why it belongs
 in this app, and how it fits [DESIGN.md](DESIGN.md). Keep the feature set small.
+
+## Issue approval
+
+1. Open an issue using the bug report or feature request template.
+2. Agree on the scope and acceptance criteria with a maintainer. Wait for them
+   to apply the `approved` label before opening a PR.
+3. Link the approved issue in the PR body and keep the change within its agreed
+   scope. Use `Closes #123` if merging should close the issue.
+
+Issues have exactly one class: `bug` for a bug fix or `enhancement` for a feature
+request. Other labels can help triage, but do not grant approval. Changes to
+docs, tests, tooling, and dependencies still need an issue describing the bug
+they fix or the improvement they propose.
+
+Maintainers apply `approved` once the scope is settled. Approval means the work
+is welcome for review; it does not guarantee the PR will be merged. Discuss
+scope changes on the issue before expanding the PR.
+
+Maintainers enforce this policy during review and may close PRs opened without
+prior issue approval or outside the approved scope. PRs must also pass the
+required `CI` check and receive maintainer review before merging.
 
 ## Develop
 
@@ -159,7 +182,8 @@ tile, or grid shaders with `bash scripts/build-shader.sh` and commit their `.qsb
 The GPU checks need a desktop OpenGL context; software Qt Quick is unsupported.
 If the environment cannot run a required check, report that explicitly.
 
-Open a pull request linking the issue. Keep commits small. Commit messages and
+Open a pull request linking the previously approved issue as described above.
+Keep commits small. Commit messages and
 pull request titles use
 [Angular conventional commits](https://www.conventionalcommits.org/en/v1.0.0/#summary):
 
