@@ -22,6 +22,7 @@ class SelectionTests(unittest.TestCase):
     def test_scenarios(self):
         cases = [
             (("README.md", "engine/README.md", "site/index.html", "branding/mark.png"), set()),
+            ((".all-contributorsrc", "README.md"), set()),
             (("ui/Panel.qml",), {"ui"}),
             (("engine/src/sweep.rs",), {"engine", "ui"}),
             (("engine/src/protocol.rs", "ui/Engine.qml"), {"engine", "ui"}),
@@ -80,13 +81,37 @@ class SelectionTests(unittest.TestCase):
                 os.chdir(previous)
 
 
+class ContributorMetadataTests(unittest.TestCase):
+    def test_json_validation(self):
+        with tempfile.TemporaryDirectory() as scratch:
+            previous = os.getcwd()
+            try:
+                os.chdir(scratch)
+                with patch("sys.argv", ["ci-changes.py"]), \
+                     patch.object(changes, "changed_paths", return_value=("base", [".all-contributorsrc", "README.md"])), \
+                     patch.object(changes.subprocess, "run"), \
+                     patch.dict(os.environ, GITHUB_STEP_SUMMARY=""), patch("builtins.print"):
+                    Path(".all-contributorsrc").write_text('{"contributors": []}\n')
+                    changes.main()
+                    report = json.loads(Path("target/ci-changes.json").read_text())
+                    self.assertFalse(any(report["groups"].values()))
+                    Path(".all-contributorsrc").write_text('{"contributors": [}\n')
+                    with self.assertRaises(json.JSONDecodeError):
+                        changes.main()
+                    # Deleted metadata does not need parsing.
+                    Path(".all-contributorsrc").unlink()
+                    changes.main()
+            finally:
+                os.chdir(previous)
+
+
 class RequiredGateTests(unittest.TestCase):
     def test_selected_jobs_cannot_fail_or_be_skipped(self):
         workflow = Path(__file__).resolve().parent.parent / ".github/workflows/engine.yml"
         # Exercise the exact final-gate program without needing a GitHub runner.
         content = workflow.read_text().split("  required:\n", 1)[1]
         program = textwrap.dedent(content.split("python3 - <<'PY'\n", 1)[1].split("          PY", 1)[0])
-        for paths in [("README.md",), ("ui/Panel.qml",), ("engine/src/main.rs",),
+        for paths in [("README.md",), (".all-contributorsrc", "README.md"), ("ui/Panel.qml",), ("engine/src/main.rs",),
                       ("scripts/fetch-engine.sh",), ("engine/release.pin",),
                       ("scripts/build-engine-release.sh",), ("mise.toml",)]:
             scope = {k: str(v).lower() for k, v in changes.classify(paths).items()}

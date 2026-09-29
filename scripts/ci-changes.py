@@ -20,7 +20,7 @@ def classify(paths, full=False):
         elif path == "engine/release.pin":
             selected.update(("pin", "ui"))
         elif path.endswith(".md") or path.startswith(("docs/", "site/", "branding/")) or path in {
-            "LICENSE", ".gitignore", ".github/FUNDING.yml", ".github/release.yml",
+            "LICENSE", ".gitignore", ".all-contributorsrc", ".github/FUNDING.yml", ".github/release.yml",
         } or path.startswith(".github/ISSUE_TEMPLATE/"):
             pass
         elif path.startswith(("engine/", "data/", "golden/")) or path in {"Cargo.toml", "Cargo.lock"}:
@@ -97,7 +97,7 @@ def main():
                    ["git", "show", "--format=", "--check", args.head], check=True)
     for name in paths:
         path = Path(name)
-        if path.suffix == ".json" and path.is_file():
+        if (path.suffix == ".json" or name == ".all-contributorsrc") and path.is_file():
             json.loads(path.read_text())
     report = {"base": base, "paths": paths, "groups": groups}
     Path("target").mkdir(exist_ok=True)
