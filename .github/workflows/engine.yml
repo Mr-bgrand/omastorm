@@ -120,7 +120,7 @@ jobs:
       QSG_RHI_BACKEND: opengl
     steps:
       - name: UI prerequisites (no Rust toolchain)
-        run: pacman -Syu --noconfirm git quickshell socat ripgrep jq imagemagick mesa ttf-dejavu python
+        run: pacman -Syu --noconfirm git quickshell socat ripgrep jq imagemagick mesa ttf-dejavu python xorg-server-xvfb xorg-xauth
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
@@ -166,7 +166,9 @@ jobs:
           cd "$ui_alias/tree"
           scope=installer
           if [[ "$UI_CHANGED" == true ]]; then scope=ui; fi
-          bash scripts/check.sh "$scope" --prebuilt
+          # Qt's offscreen OpenGL backend still needs an X display for GLX.
+          xvfb-run -a -s "-screen 0 1280x1024x24 +extension GLX" \
+            bash scripts/check.sh "$scope" --prebuilt
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         if: always()
         with:
