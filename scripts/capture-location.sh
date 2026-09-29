@@ -10,6 +10,16 @@ export QT_QPA_PLATFORM=offscreen QT_QPA_PLATFORMTHEME=basic QT_QUICK_BACKEND=rhi
 review="$PWD/review"
 rm -f "$review"/location-*.png
 scratch=$(mktemp -d /tmp/omastorm-location.XXXXXX)
+cleanup() {
+  jobs -pr > "$scratch/.jobs"
+  xargs -r kill -KILL < "$scratch/.jobs" 2>/dev/null || true
+  wait || true
+  XDG_RUNTIME_DIR="$scratch/runtime" target/debug/omastorm-engine stop >/dev/null 2>&1 || true
+  rm -rf -- "$scratch"
+}
+trap cleanup EXIT
+trap 'exit 130' INT
+trap 'exit 143' TERM
 export XDG_RUNTIME_DIR="$scratch/runtime" XDG_CACHE_HOME="$scratch/cache"
 mkdir -p "$XDG_RUNTIME_DIR" "$XDG_CACHE_HOME"
 printf '{\n  "name": "Stokesdale",\n  "latitude": 36.23708,\n  "longitude": -79.97948\n}\n' > "$scratch/weather.json"
@@ -17,7 +27,6 @@ printf '{\n  "name": "Stokesdale",\n  "latitude": 36.23708,\n  "longitude": -79.
 printf 'center_lat = 30.332\ncenter_lon = -81.656\nlocked_radar = "KTLX"\n' > "$scratch/locked.toml"
 bash scripts/cargo.sh build --offline --locked --quiet
 target/debug/omastorm-engine ensure
-trap 'target/debug/omastorm-engine stop >/dev/null 2>&1 || true' EXIT
 
 capture() { # name, delay ms, env..., then ipc steps
   local name=$1 delay=$2 pid

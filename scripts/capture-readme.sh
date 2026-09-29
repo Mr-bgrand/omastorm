@@ -7,6 +7,16 @@ cd "$(dirname "$0")/.."
 media="$PWD/docs/media/readme"
 mkdir -p "$media" review
 scratch=$(mktemp -d /tmp/omastorm-readme.XXXXXX)
+cleanup() {
+  jobs -pr > "$scratch/.jobs"
+  xargs -r kill -KILL < "$scratch/.jobs" 2>/dev/null || true
+  wait || true
+  XDG_RUNTIME_DIR="$scratch/runtime" target/debug/omastorm-engine stop >/dev/null 2>&1 || true
+  rm -rf -- "$scratch"
+}
+trap cleanup EXIT
+trap 'exit 130' INT
+trap 'exit 143' TERM
 mkdir -p "$scratch/runtime" "$scratch/cache" "$scratch/bin" "$scratch/tokyo-night" "$scratch/flexoki-light"
 export XDG_RUNTIME_DIR="$scratch/runtime" XDG_CACHE_HOME="$scratch/cache" TMPDIR="$scratch"
 export QT_QPA_PLATFORM=offscreen QT_QPA_PLATFORMTHEME=basic QT_QUICK_BACKEND=rhi QSG_RHI_BACKEND=opengl
@@ -48,13 +58,6 @@ perl -pi -e 's/color: "#181414"/color: theme.snapshot.background/' "$harness_dir
 export OMASTORM_QML="$harness"
 export OMASTORM_STATE_OVERRIDE='{"source":"live","connection":{"status":"ok","ageSeconds":48}}'
 export OMASTORM_THEME_DIR="$scratch/tokyo-night"
-
-readme_runtime=$XDG_RUNTIME_DIR
-cleanup() {
-  XDG_RUNTIME_DIR="$readme_runtime" target/debug/omastorm-engine stop >/dev/null 2>&1 || true
-  rm -rf "$harness_dir"
-}
-trap cleanup EXIT
 
 wait_ipc() {
   local pid=$1

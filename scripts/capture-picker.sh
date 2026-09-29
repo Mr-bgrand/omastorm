@@ -12,6 +12,15 @@ export QT_QPA_PLATFORM=offscreen QT_QPA_PLATFORMTHEME=basic QT_QUICK_BACKEND=rhi
 review="$PWD/review"
 rm -f "$review"/picker-*.png
 scratch=$(mktemp -d /tmp/omastorm-picker.XXXXXX)
+cleanup() {
+  jobs -pr > "$scratch/.jobs"
+  xargs -r kill -KILL < "$scratch/.jobs" 2>/dev/null || true
+  wait || true
+  rm -rf -- "$scratch"
+}
+trap cleanup EXIT
+trap 'exit 130' INT
+trap 'exit 143' TERM
 jq -r '.sites[] | select(.id=="KTLX") | "center_lat = \(.lat)\ncenter_lon = \(.lon)\nlocked_radar = \"KTLX\""' engine/data/sites.json > "$scratch/home.toml"
 bash scripts/cargo.sh build --offline --locked --quiet
 target/debug/omastorm-engine ensure

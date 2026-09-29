@@ -4,17 +4,22 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 scratch=$(mktemp -d /tmp/omastorm-popover-capture.XXXXXX)
+cleanup() {
+  jobs -pr > "$scratch/.jobs"
+  xargs -r kill -KILL < "$scratch/.jobs" 2>/dev/null || true
+  wait || true
+  XDG_RUNTIME_DIR="$scratch/runtime" target/debug/omastorm-engine stop >/dev/null 2>&1 || true
+  rm -rf -- "$scratch"
+}
+trap cleanup EXIT
+trap 'exit 130' INT
+trap 'exit 143' TERM
 export XDG_RUNTIME_DIR="$scratch/runtime" XDG_CACHE_HOME="$scratch/cache"
 export OMASTORM_ROOT="$PWD" OMASTORM_CONFIG="$scratch/config.toml"
 export QT_QPA_PLATFORM=offscreen QT_QPA_PLATFORMTHEME=basic QT_QUICK_BACKEND=rhi QSG_RHI_BACKEND=opengl
 mkdir -p "$XDG_RUNTIME_DIR" review
 jq -r '.sites[] | select(.id=="KTLX") | "center_lat = \(.lat)\ncenter_lon = \(.lon)\nlocked_radar = \"KTLX\""' engine/data/sites.json > "$OMASTORM_CONFIG"
 pid=
-cleanup() {
-  [[ -z $pid ]] || kill "$pid" 2>/dev/null || true
-  target/debug/omastorm-engine stop >/dev/null 2>&1 || true
-}
-trap cleanup EXIT
 quickshell -p ui/PopoverHarness.qml > "$scratch/ui.log" 2>&1 &
 pid=$!
 call() { quickshell ipc --pid "$pid" call popover "$@"; }

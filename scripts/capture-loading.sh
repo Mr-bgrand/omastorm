@@ -12,9 +12,19 @@ export QT_QPA_PLATFORM=offscreen QT_QPA_PLATFORMTHEME=basic QT_QUICK_BACKEND=rhi
 site="${SITE:-KJAX}"
 review="$PWD/review"
 rm -f "$review"/loading-*.png
-config=$(mktemp /tmp/omastorm-loading-config.XXXXXX)
+scratch=$(mktemp -d /tmp/omastorm-loading.XXXXXX)
+cleanup() {
+  jobs -pr > "$scratch/.jobs"
+  xargs -r kill -KILL < "$scratch/.jobs" 2>/dev/null || true
+  wait || true
+  rm -rf -- "$scratch"
+}
+trap cleanup EXIT
+trap 'exit 130' INT
+trap 'exit 143' TERM
+config="$scratch/config.toml"
 jq -r --arg id "$site" '.sites[] | select(.id==$id) | "center_lat = \(.lat)\ncenter_lon = \(.lon)\nlocked_radar = \"\(.id)\""' engine/data/sites.json > "$config"
-none=$(mktemp /tmp/omastorm-loading-none.XXXXXX)
+none="$scratch/none.toml"
 : > "$none"
 
 capture() { # name, delay ms, env...
@@ -27,7 +37,6 @@ capture() { # name, delay ms, env...
 
 # The scratch daemon never touches the shared daemon's runtime directory or
 # the real cache; ensure in run.sh finds it by build under XDG_RUNTIME_DIR.
-scratch=$(mktemp -d /tmp/omastorm-loading.XXXXXX)
 mkdir -p "$scratch/runtime" "$scratch/cache"
 XDG_RUNTIME_DIR="$scratch/runtime" XDG_CACHE_HOME="$scratch/cache" OMASTORM_ARCHIVE='' target/debug/omastorm-engine serve > "$scratch/engine.log" 2>&1 &
 for _ in $(seq 100); do [[ -S "$scratch/runtime/omastorm/engine.sock" ]] && break; sleep .1; done
