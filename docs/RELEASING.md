@@ -136,8 +136,12 @@ If release validation fails, resolve the reported precondition.
    Release for it with user-facing notes. Generate release notes against the
    previous `v*` tag, never an `engine-*` tag (engine releases compare only
    against the previous `engine-*` tag). GitHub groups pull requests by label
-   per [.github/release.yml](../.github/release.yml); unlabeled ones land under
-   Other changes, and GitHub adds New Contributors itself. Attach any new
+   per [.github/release.yml](../.github/release.yml): `documentation` goes
+   under Docs, otherwise `bug` under Fixes and `enhancement` under Features.
+   PRs labeled `duplicate` or `wontfix` are excluded; unlabeled ones land
+   under Other changes. Apply labels as described in
+   [CONTRIBUTING.md](../CONTRIBUTING.md#labels). GitHub adds New Contributors
+   itself. Attach any new
    [README media](media/README.md) before publishing; keep media out of git.
 4. Publish the draft. Keep README media URLs pointed at releases containing
    those assets; older demo assets can stay linked.

@@ -43,6 +43,30 @@ Maintainers enforce this policy during review and may close PRs opened without
 prior issue approval or outside the approved scope. PRs must also pass the
 required `CI` check and receive maintainer review before merging.
 
+## Labels
+
+Use the same labels on issues and PRs. Every issue has exactly one of `bug`
+or `enhancement`; apply the corresponding type to its PR for release notes.
+Add other labels only when they help someone decide what to do next.
+
+| Label | Use |
+| --- | --- |
+| `bug` | Existing behavior is broken. |
+| `enhancement` | New capability or improvement. |
+| `documentation` | Docs work; supplement the issue or PR type. |
+| `approved` | A maintainer agreed to the issue scope before implementation. |
+| `needs-author` | Waiting for information or changes from the author. |
+| `blocked` | Waiting on another issue or an external dependency. |
+| `help wanted` | Approved work available for a contributor to pick up. |
+| `good first issue` | Approved, small, scoped work suitable for a newcomer. |
+| `duplicate` | Already tracked elsewhere; link the original when closing. |
+| `wontfix` | Outside scope or declined; explain the decision when closing. |
+
+`approved` applies to issues and does not replace PR review. Remove
+`needs-author` or `blocked` when the wait ends. Use GitHub review requests
+to indicate that a PR needs review. Priority, component, and release labels
+are not part of this set.
+
 ## Develop
 
 Read [README.md](README.md) for the user guide and [DESIGN.md](DESIGN.md) for product
