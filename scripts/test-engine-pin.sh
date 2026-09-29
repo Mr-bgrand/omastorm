@@ -25,13 +25,16 @@ source scripts/engine-pin.sh
 
 # Several copies of the debug engine and a tree of HEAD: under target/, and
 # gone on exit, pass or fail.
-scratch=$PWD/target/test-engine-pin
-rm -rf "$scratch"
-mkdir -p "$scratch"
-trap 'rm -rf "$scratch"' EXIT
+mkdir -p target
+scratch=$(mktemp -d "$PWD/target/test-engine-pin.XXXXXX")
+debug=$PWD/target/debug/omastorm-engine
+cleanup() {
+  "$debug" stop >/dev/null 2>&1 || true
+  rm -rf "$scratch"
+}
 export XDG_DATA_HOME="$scratch/data" XDG_CACHE_HOME="$scratch/cache" XDG_RUNTIME_DIR="$scratch/runtime"
 mkdir -p "$XDG_RUNTIME_DIR"
-debug=$PWD/target/debug/omastorm-engine
+trap cleanup EXIT
 sum=$(sha256sum -- "$debug" | awk '{print $1}')
 native=$(engine_machine "$(uname -m)")
 export OMASTORM_ENGINE_MACHINE=$native

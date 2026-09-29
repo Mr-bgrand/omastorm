@@ -602,6 +602,7 @@ fn install_harness(dir: &Path) {
         );
     fs::create_dir_all(dir).unwrap();
     fs::write(dir.join("RadarMap.qml"), component).unwrap();
+    fs::copy(format!("{ROOT}/ui/Metar.js"), dir.join("Metar.js")).unwrap();
     // The pan pair drives the real socket client for tiles; unchanged.
     fs::copy(format!("{ROOT}/ui/Engine.qml"), dir.join("Engine.qml")).unwrap();
 }

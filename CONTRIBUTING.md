@@ -94,14 +94,30 @@ Omarchy theme, radar color only from `frame.palette`.
 
 ## Verify and submit
 
-Branch from `main`. One change per pull request. Run `mise check` before every
-commit; it uses scratch daemons and leaves the shared daemon alone. Cargo runs
-first, then the Rust tests run alongside the UI checks, which proceed in two
-lanes. Scratch and logs live under `target/check/`, never `/tmp`; the daemons
-and runtime files go on every exit, and the logs stay until the next run.
-The checks read `target/debug/`, so leave `CARGO_TARGET_DIR` unset. Engine
-builds CI lints, tests, and packages both Linux architectures; GPU and QML
-checks still run locally. A pull request is ready when `mise check` passes.
+Branch from `main`. One change per pull request. During iteration, run the
+focused checks that cover the change:
+
+| Change | Command |
+| --- | --- |
+| Engine logic, decoding, storage | `mise check-engine` |
+| Wire output, commands, daemon lifecycle | `mise check-protocol` |
+| QML, launcher, installer, UI integration | `mise check-ui` |
+| Shader sampling, camera, rendering | `mise check-rendering` |
+
+Focused checks support iteration and commits; they do not establish PR readiness.
+Run `mise check` before marking a PR ready, plus the rendering checks and captures
+below when applicable. The complete applicable suite gates readiness.
+
+Checks use scratch daemons and leave the shared daemon alone. Cargo builds first;
+Rust tests can overlap with UI work, but UI groups run sequentially to avoid
+competing Quickshell/OpenGL harnesses. Concurrent check runners in the same
+checkout are refused before touching scratch files. Scratch and logs live under
+`target/check/`; runtime files are removed on exit, logs remain until the next
+run. `target/check/logs/timings.tsv` records step durations and total wall time.
+Step times overlap and should not be summed to infer wall time. The checks read
+`target/debug/`, so leave `CARGO_TARGET_DIR` unset. CI lints, tests, and packages
+both Linux architectures; GPU and QML checks still run locally. Report required
+checks that could not run explicitly.
 
 For shader, sampling, or camera changes, also run `mise check --gpu` and
 `bash scripts/capture-review.sh`, inspect the images in `review/`, and include

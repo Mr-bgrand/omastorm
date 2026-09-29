@@ -153,6 +153,9 @@ The protocol documents mask channels, labels, attribution, and path validation.
 
 ## Verification
 
+Repeatable recorded-input performance commands and measurement boundaries are in
+[verification-baseline.md](../docs/verification-baseline.md).
+
 Required checks and capture commands are in
 [CONTRIBUTING.md](../CONTRIBUTING.md#verify-and-submit).
 
