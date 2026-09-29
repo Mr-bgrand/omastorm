@@ -135,6 +135,15 @@
         "code",
         "doc"
       ]
+    },
+    {
+      "login": "Noah-Brown",
+      "name": "Noah-Brown",
+      "avatar_url": "https://avatars.githubusercontent.com/u/14036855?v=4",
+      "profile": "https://github.com/Noah-Brown",
+      "contributions": [
+        "code"
+      ]
     }
   ],
   "commitType": "docs"
