@@ -175,8 +175,14 @@ map. It is not a new row of chrome.
 
 Selecting a radar loads its recent scans for playback. NEXRAD history grows
 toward **60 frames / two hours**;
-OPERA retains up to **12 mosaic frames**. Older scans drop out. Space loops
-what is available; `[` `]` steps; Home and End jump.
+OPERA retains up to **12 mosaic frames**. Older scans drop out.
+
+Space and the Play button loop from the selected completed frame through the
+newest completed scan, returning to the selection each time. Starting from
+the newest completed frame or a sweep still painting loops the full history;
+Home then Play also selects the full history. Space or the button pauses
+while playing, and the next Play captures the current selection as its start.
+`[` `]` steps; Home and End jump to the oldest or newest frame.
 
 NOAA publishes NEXRAD Level II via the [Open Data program on AWS](https://registry.opendata.aws/noaa-nexrad/).
 A full volume takes about four to seven minutes (faster in severe weather,
@@ -215,7 +221,7 @@ Chrome follows the Omarchy theme. Radar color comes from the measured reflectivi
 | `n` | Follow the covering radar (camera stays) |
 | `Shift+L` | Lock the radar |
 | `m` | My location |
-| Space | Play / pause the loop |
+| Space | Loop from the selected frame / pause |
 | `[` `]` | Step a frame |
 | Home / End | Oldest or newest frame |
 | `1` `2` `3` | Pixels, Glyphs, Stipple |
