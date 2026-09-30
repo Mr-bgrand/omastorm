@@ -1,7 +1,7 @@
 # Verify published assets with mise engine-pin before committing.
-tag=engine-0.1.10
+tag=engine-0.1.11
 repo=wesleygrimes/omastorm
 asset_x86_64=omastorm-engine-x86_64-unknown-linux-gnu
-sha256_x86_64=d2fb18f4f4aa5e3e9692d1f043525cdfaa0e716f60e2321401b9b405007446a9
+sha256_x86_64=73ad74d26b719184fb5f26ee88bbb2f843baacdf5088bf414adc4be0f606b9ee
 asset_aarch64=omastorm-engine-aarch64-unknown-linux-gnu
-sha256_aarch64=f999baff37b0154fc34ef8485b1e73cf00c1e34e6cf91552d8939501add2bd97
+sha256_aarch64=03b62130d9cb757f799df49e73e95eb9b35094afadd3a5d2175213db1e2ab573
