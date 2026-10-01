@@ -3,7 +3,9 @@
 # SUPER + SHIFT + R and the shell toggle; Omarchy defaults do not use
 # that chord; install and launch never write bindings.lua.
 set -euo pipefail
-cd "$(dirname "$0")/.."
+# shellcheck source=tests/integration/common.sh
+source "$(dirname "$0")/common.sh"
+cd "$(dirname "$0")/../.."
 
 fail() { printf '%s\n' "$@" >&2; exit 1; }
 

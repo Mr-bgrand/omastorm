@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
 # Drive loading and hand-offs in the real window without live network feeds.
 set -euo pipefail
-cd "$(dirname "$0")/.."
+# shellcheck source=tests/integration/common.sh
+source "$(dirname "$0")/common.sh"
+cd "$(dirname "$0")/../.."
 check_dir=$(mktemp -d "${TMPDIR:-/tmp}/omastorm-handoff.XXXXXX")
 trap 'rm -rf "$check_dir"' EXIT
-cp ui/*.qml ui/*.js ui/qmldir "$check_dir/"
-ln -s "$PWD/ui/shaders" "$check_dir/shaders"
-sed -i '/id: app$/a\    property alias testEngine: engine\n    property alias testMap: map\n    property alias testSurface: surface' "$check_dir/RadarWindow.qml"
+stage_ui "$check_dir"
 cp tests/radar-handoff.qml "$check_dir/shell.qml"
 printf 'center_lat = 35.333\ncenter_lon = -97.278\n' > "$check_dir/config.toml"
 mkdir -p review

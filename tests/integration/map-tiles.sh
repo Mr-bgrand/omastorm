@@ -1,8 +1,10 @@
 #!/usr/bin/env bash
 set -euo pipefail
-cd "$(dirname "$0")/.."
+# shellcheck source=tests/integration/common.sh
+source "$(dirname "$0")/common.sh"
+cd "$(dirname "$0")/../.."
 # Harness outside the checkout: Omarchy rejects a shaders symlink in the plugin folder.
-check_dir=$(mktemp -d /tmp/omastorm-check-map-tiles.XXXXXX)
+check_dir=$(mktemp -d "${TMPDIR:?}/omastorm-check-map-tiles.XXXXXX")
 trap 'rm -rf "$check_dir"' EXIT
 mkdir -p review
 rm -f review/zoom-held-before.png review/zoom-held-partial.png review/zoom-ready.png

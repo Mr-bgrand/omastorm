@@ -2,7 +2,9 @@
 # Opt-in launcher entry (DESIGN.md, launcher entry): writes a desktop
 # file under scratch XDG_DATA_HOME, never from install or launch.
 set -euo pipefail
-cd "$(dirname "$0")/.."
+# shellcheck source=tests/integration/common.sh
+source "$(dirname "$0")/common.sh"
+cd "$(dirname "$0")/../.."
 
 fail() { printf '%s\n' "$@" >&2; exit 1; }
 
@@ -53,19 +55,7 @@ bash scripts/write-desktop-entry.sh
 rg -q '^Name=Omastorm$' "$desktop" || fail 'second run did not refresh omastorm.desktop'
 
 # The same DesktopEntries list the Omarchy launcher reads.
-cat > "$scratch/probe.qml" <<'QML'
-import Quickshell
-import Quickshell.Io
-ShellRoot {
-    IpcHandler {
-        target: "probe"
-        function entry(): string {
-            var e = DesktopEntries.byId("omastorm")
-            return e ? (e.id + "|" + e.name) : ""
-        }
-    }
-}
-QML
+cp tests/harnesses/launcher.qml "$scratch/probe.qml"
 export QT_QPA_PLATFORM=offscreen QT_QPA_PLATFORMTHEME=basic
 quickshell -p "$scratch/probe.qml" > "$scratch/probe.log" 2>&1 &
 pid=$!

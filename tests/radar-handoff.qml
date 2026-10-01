@@ -10,8 +10,8 @@ ShellRoot {
     function check(ok, message) { if (!ok) throw new Error(message); }
     function copy(value) { return JSON.parse(JSON.stringify(value)); }
     function position() {
-        var m = app.testMap;
-        var p = m.mapToItem(app.testSurface, 0, 0);
+        var m = app.mapItem;
+        var p = m.mapToItem(app.surfaceItem, 0, 0);
         return [p.x, p.y, m.width, m.height, m.viewCenterX, m.viewCenterY, m.worldPixels];
     }
     function stable() {
@@ -20,7 +20,7 @@ ShellRoot {
               "Loading or hand-off moved the map: " + geometry + " -> " + next);
     }
     function capture(name, after) {
-        app.testSurface.grabToImage(result => {
+        app.surfaceItem.grabToImage(result => {
             result.saveToFile(Quickshell.env("OMASTORM_REVIEW") + "/handoff-" + name + ".png");
             if (after) after();
         });
@@ -29,7 +29,7 @@ ShellRoot {
         interval: 500; repeat: true; running: true
         onTriggered: {
             try {
-                var engine = app.testEngine, map = app.testMap;
+                var engine = app.connection, map = app.mapItem;
                 if (stage === 0) {
                     if (!map.radarReady) return;
                     original = copy(engine.state);

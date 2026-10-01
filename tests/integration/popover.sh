@@ -1,12 +1,14 @@
 #!/usr/bin/env bash
 # Real card + embedded window, isolated from the desktop shell and daemon.
 set -euo pipefail
-cd "$(dirname "$0")/.."
+# shellcheck source=tests/integration/common.sh
+source "$(dirname "$0")/common.sh"
+cd "$(dirname "$0")/../.."
 mkdir -p review
 scratch=$PWD/target/check-popover
 rm -rf "$scratch"
 mkdir -p "$scratch"
-export XDG_RUNTIME_DIR="$scratch/r" XDG_CACHE_HOME="$scratch/cache"
+# Runtime/cache are selected and owned by the shared runner.
 export QT_QPA_PLATFORM=offscreen QT_QPA_PLATFORMTHEME=basic QT_QUICK_BACKEND=rhi QSG_RHI_BACKEND=opengl
 export OMASTORM_CONFIG="$scratch/config.toml"
 export OMASTORM_STATE="$scratch/state.json"
@@ -31,35 +33,17 @@ jq -c '.sites[] | select(.id=="KTLX") | {lat, lon, span: 210}' engine/data/sites
 pid=
 cleanup() {
   [[ -z $pid ]] || kill "$pid" 2>/dev/null || true
-  target/debug/omastorm-engine stop >/dev/null 2>&1 || true
+  "${OMASTORM_ENGINE_BINARY:?selected by mise test integration}" stop >/dev/null 2>&1 || true
   # Runtime files go; UI logs and the disposable harness stay for reading.
-  rm -rf "$scratch/r" "$scratch/cache"
+  : # Runner removes owned runtime/cache.
 }
 trap cleanup EXIT
-# Instrument disposable copies only: production controls emit their commands,
-# but playback tests consume replayed state instead of running engine policy.
-cp -a ui "$scratch/ui"
+# Mount production components with a composed mock transport for command replay.
+stage_ui "$scratch/ui"
 cp tests/popover-playback.js "$scratch/ui/PlaybackTest.js"
-python3 - "$scratch/ui" <<'PY_HARNESS'
-from pathlib import Path
-import sys
-root = Path(sys.argv[1])
-p = root / 'Engine.qml'
-s = p.read_text().replace('    id: engine', '    id: engine\n    property bool testPlayback: false\n    property var testCommands: []', 1)
-s = s.replace('    function send(command) {', '    function send(command) {\n        if (testPlayback) { testCommands = testCommands.concat([command]); return; }', 1)
-p.write_text(s)
-p = root / 'RadarWindow.qml'
-p.write_text(p.read_text().replace('    id: app', '    id: app\n    property alias testEngine: engine', 1))
-p = root / 'PopoverHarness.qml'
-s = p.read_text().replace('import QtQuick', 'import "PlaybackTest.js" as PlaybackTest\nimport QtQuick', 1)
-s = s.replace('        function play(): void', '''        function beginPlayback(): void { PlaybackTest.begin(popover.engine, panel.testEngine); }
-        function playbackFrame(index: int, playing: bool): void { PlaybackTest.frame(index, playing); }
-        function clearPlaybackCommands(): void { PlaybackTest.clearCommands(); }
-        function playbackCommands(): string { return PlaybackTest.commands(); }
-        function endPlayback(): void { PlaybackTest.end(); }
-        function play(): void''', 1)
-p.write_text(s)
-PY_HARNESS
+cp tests/harnesses/popover.qml "$scratch/ui/PopoverHarness.qml"
+cp tests/harnesses/MockSocket.qml "$scratch/ui/MockSocket.qml"
+printf 'MockSocket 1.0 MockSocket.qml\n' >> "$scratch/ui/qmldir"
 quickshell -p "$scratch/ui/PopoverHarness.qml" > "$scratch/ui.log" 2>&1 &
 pid=$!
 call() { quickshell ipc --pid "$pid" call popover "$@"; }
@@ -164,9 +148,9 @@ until_status '.updatePending == false'
 # A stopped daemon followed by ensure must reconnect all surviving clients.
 # Reconnect keeps the session lock and camera; this process never unlocked,
 # so KFCX is selected again.
-target/debug/omastorm-engine stop
+"${OMASTORM_ENGINE_BINARY:?selected by mise test integration}" stop
 until_status '.connected == false'
-target/debug/omastorm-engine ensure
+"${OMASTORM_ENGINE_BINARY:?selected by mise test integration}" ensure
 until_status '.site == "KFCX" and .connected'
 call quit
 wait "$pid"

@@ -6,7 +6,7 @@ from pathlib import Path
 import subprocess
 import sys
 
-from runtime import ROOT, run
+from runtime import ROOT, run, Interrupted, handle_interruptions
 
 
 def parser():
@@ -20,12 +20,17 @@ def parser():
     test = commands.add_parser('test', help='Fast unit tests, or selected process/UI integration')
     test.add_argument('mode', nargs='?', choices=('unit', 'integration'), default='unit')
     test.add_argument('--scope', choices=('all', 'engine', 'protocol', 'ui', 'installer', 'tooling'), default='all')
+    test.add_argument('--engine', choices=('pin', 'candidate'), default='pin')
+    test.add_argument('--binary', help='Explicit engine path; pin mode verifies the committed checksum')
+    test.add_argument('--case', action='append', default=[], help='Repeat UI/installer scenario names for focused integration')
     for name in ('lint', 'format'):
         command = commands.add_parser(name, help='Check' if name == 'lint' else 'Apply supported language formatters')
         command.add_argument('--scope', choices=('all', 'engine', 'ui', 'tooling'), default='all')
     commands.add_parser('build', help='Incremental offline engine and baked shader build')
     check = commands.add_parser('check', help='Complete applicable checks; focused scopes or changed paths')
-    check.add_argument('--scope', choices=('all', 'engine', 'protocol', 'ui', 'installer', 'rendering'), default='all')
+    check.add_argument('--scope', choices=('all', 'engine', 'protocol', 'ui', 'installer', 'tooling', 'rendering'), default='all')
+    check.add_argument('--changed', action='store_true', help='Select complete branch diff plus staged, unstaged and untracked paths')
+    check.add_argument('--base', default='origin/main', help='Base for changed-path mode; defaults to origin/main')
     check.add_argument('--gpu', action='store_true', help='Add desktop OpenGL sampling/camera checks')
     release = commands.add_parser('release', help='Show release stages without mutation when no stage is supplied')
     stages = release.add_subparsers(dest='product')
@@ -65,6 +70,8 @@ def main():
     args = top.parse_args()
     if args.command == 'release' and not args.product:
         top.parse_args(['release', '--help'])
+    if args.command != 'dev':
+        handle_interruptions()
     try:
         if args.command == 'setup':
             setup(args)
@@ -75,16 +82,16 @@ def main():
             run('bash', ROOT / 'scripts/cargo.sh', 'build', '--offline', '--locked', timeout=600)
             run('bash', ROOT / 'scripts/build-shader.sh')
         elif args.command == 'test':
+            from suite import unit, integration
             if args.mode == 'unit':
-                if args.scope not in ('all', 'engine'):
-                    top.error('Unit scope currently supports all or engine; integration supports protocol/UI/installer.')
-                run('bash', ROOT / 'scripts/cargo.sh', 'test', '--offline', '--locked', '--bin', 'omastorm-engine', timeout=600)
-                run('bash', ROOT / 'scripts/cargo.sh', 'test', '--offline', '--locked', '--test', 'rendering', timeout=600)
+                if args.scope not in ('all', 'engine', 'ui', 'tooling') or args.case or args.binary or args.engine != 'pin':
+                    top.error('Unit mode supports all/engine/ui/tooling; engine selection and cases require integration.')
+                unit(args.scope)
             else:
-                run('bash', ROOT / 'scripts/check.sh', args.scope, timeout=900)
+                integration(args)
         elif args.command in ('lint', 'format'):
             if args.scope in ('all', 'ui'):
-                for file in sorted((ROOT / 'ui').glob('*.qml')):
+                for file in sorted(list((ROOT / 'ui').glob('*.qml')) + list((ROOT / 'ui').glob('*.js'))):
                     run('/usr/lib/qt6/bin/qmlformat', *(['-i'] if args.command == 'format' else []), file, stdout=subprocess.DEVNULL)
                 run('/usr/lib/qt6/bin/qmllint', *sorted((ROOT / 'ui').glob('*.js')))
             if args.scope in ('all', 'engine'):
@@ -92,12 +99,15 @@ def main():
                 if args.command == 'lint':
                     run('bash', ROOT / 'scripts/cargo.sh', 'clippy', '--offline', '--locked', '--all-targets', '--', '-D', 'warnings', timeout=600)
             if args.command == 'lint' and args.scope in ('all', 'tooling'):
-                run('shellcheck', '-x', ROOT / 'run.sh', *sorted((ROOT / 'scripts').glob('*.sh')))
+                run('shellcheck', '-x', ROOT / 'run.sh', *sorted((ROOT / 'scripts').glob('*.sh')), *sorted((ROOT / 'tests/integration').glob('*.sh')))
         elif args.command == 'check':
-            run('bash', ROOT / 'scripts/check.sh', args.scope, *(['--gpu'] if args.gpu else []), timeout=900)
+            from suite import check
+            check(args)
         else:
             raise RuntimeError('Release stages are being migrated; this stage is not available yet.')
-    except (RuntimeError, OSError, subprocess.SubprocessError) as error:
+    except Interrupted as error:
+        return 128 + error.signum
+    except (ValueError, RuntimeError, OSError, subprocess.SubprocessError) as error:
         print(error, file=sys.stderr)
         return 1
     return 0

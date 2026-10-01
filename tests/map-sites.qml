@@ -16,6 +16,14 @@ ShellRoot {
             siteId: engine.selectedSiteId
         }
     }
+    function delegates(item) {
+        if (item.objectName === "coverage-delegates") return item;
+        for (var child of item.children || []) {
+            var found = delegates(child);
+            if (found) return found;
+        }
+        return null;
+    }
     function check(ok, message) { if (!ok) throw new Error(message); }
     function distance(a, b) {
         var r = Math.PI/180, dp = (a.lat-b.lat)*r, dl = (a.lon-b.lon)*r;
@@ -25,8 +33,8 @@ ShellRoot {
     property int stage: 0
     property var heldLabels
     function checkCoverageOrigin() {
-        check(map.coverageForTest.count === 1, "Only the active radar should have a coverage delegate");
-        var item = map.coverageForTest.itemAt(0);
+        check(delegates(map).count === 1, "Only the active radar should have a coverage delegate");
+        var item = delegates(map).itemAt(0);
         var origin = item.mapToItem(map, 0, 0);
         check(Math.abs(origin.x-map.sx(map.siteMx))<1e-7
             && Math.abs(origin.y-map.sy(map.siteMy))<1e-7, "Coverage is not attached to the camera origin");

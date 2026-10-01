@@ -55,13 +55,8 @@ if [[ -t 1 ]]; then
   else
     location=$HOME/.local/state/omarchy/settings/weather.json
   fi
-  bar=$(bash scripts/link-plugin.sh --status)
+  bar="installed production copy"
   printf 'Omastorm %s\n  qml    %s\n  engine %s\n  bar    %s\n  config %s\n  state  %s\n  place  %s\n' \
     "$PWD" "${OMASTORM_QML:-ui/shell.qml}" "$mode" "$bar" "$config" "$state" "$location"
-fi
-# mise start / restart / onboard restart the Omarchy shell when this checkout
-# is linked, so the bar popover matches. Captures and checks leave it alone.
-if [[ -n ${OMASTORM_RESCAN_PLUGIN:-} ]]; then
-  bash scripts/link-plugin.sh --rescan
 fi
 exec quickshell -p "${OMASTORM_QML:-ui/shell.qml}" "$@"

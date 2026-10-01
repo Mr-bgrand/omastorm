@@ -3,10 +3,12 @@
 # through its IPC handler against the fixture daemon: the tiers and the
 # distance order, the four-row cut, the empty and the hopeless query, the
 # selection keys, and Enter selecting and locking the station for real. Run
-# through check.sh, whose scratch daemon it leaves on the chosen station; it
+# through focused integration runner, whose scratch daemon it leaves on the chosen station; it
 # comes last there for that reason.
 set -euo pipefail
-cd "$(dirname "$0")/.."
+# shellcheck source=tests/integration/common.sh
+source "$(dirname "$0")/common.sh"
+cd "$(dirname "$0")/../.."
 check_dir="$PWD/target/check-picker"
 mkdir -p "$check_dir"
 : > "$check_dir/none.toml"

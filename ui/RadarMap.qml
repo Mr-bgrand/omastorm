@@ -844,6 +844,7 @@ Item {
         visible: true
         Repeater {
             id: coverageRepeater
+            objectName: "coverage-delegates"
             model: map.coverageSites
             Loader {
                 id: footprint

@@ -3,7 +3,9 @@
 # resolution order, state writes, the picker, a centre outside a locked
 # radar, restore after close, and isolation from the machine's files.
 set -euo pipefail
-cd "$(dirname "$0")/.."
+# shellcheck source=tests/integration/common.sh
+source "$(dirname "$0")/common.sh"
+cd "$(dirname "$0")/../.."
 check_dir="$PWD/target/check-location"
 mkdir -p "$check_dir"
 printf '{\n  "name": "Stokesdale",\n  "latitude": 36.23708,\n  "longitude": -79.97948\n}\n' > "$check_dir/weather.json"

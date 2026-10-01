@@ -6,10 +6,12 @@
 # each action's effect on the camera, the treatment, the sheet, the menu,
 # and the picker, the fix applied live through the file watch, and the
 # current-location home from a weather.json with the header naming it. Run
-# through check.sh, whose scratch daemon it leaves on the location's
+# through focused integration runner, whose scratch daemon it leaves on the location's
 # station; it comes last there for that reason.
 set -euo pipefail
-cd "$(dirname "$0")/.."
+# shellcheck source=tests/integration/common.sh
+source "$(dirname "$0")/common.sh"
+cd "$(dirname "$0")/../.."
 check_dir="$PWD/target/check-keys"
 mkdir -p "$check_dir"
 rm -f "$check_dir/state.json"

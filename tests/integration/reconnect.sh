@@ -8,11 +8,13 @@
 # asks for the file's station. Own daemon, state, and cache, so the shared
 # daemon and the real catalog are left alone.
 set -euo pipefail
-cd "$(dirname "$0")/.."
+# shellcheck source=tests/integration/common.sh
+source "$(dirname "$0")/common.sh"
+cd "$(dirname "$0")/../.."
 scratch=$PWD/target/check-reconnect
 rm -rf "$scratch"
 mkdir -p "$scratch/r"
-export XDG_RUNTIME_DIR="$scratch/r" XDG_CACHE_HOME="$scratch/cache"
+# Runtime/cache are selected and owned by the shared runner.
 export QT_QPA_PLATFORM=offscreen QT_QPA_PLATFORMTHEME=basic QT_QUICK_BACKEND=rhi QSG_RHI_BACKEND=opengl
 export OMASTORM_CONFIG="$scratch/config.toml" OMASTORM_STATE="$scratch/state.json"
 : > "$OMASTORM_CONFIG"
@@ -25,8 +27,8 @@ write_state KFCX
 pid=
 cleanup() {
   [[ -z $pid ]] || kill "$pid" 2>/dev/null || true
-  target/debug/omastorm-engine stop >/dev/null 2>&1 || true
-  rm -rf "$scratch/r" "$scratch/cache"
+  "${OMASTORM_ENGINE_BINARY:?selected by mise test integration}" stop >/dev/null 2>&1 || true
+  : # Runner removes owned runtime/cache.
 }
 trap cleanup EXIT
 bash run.sh > "$scratch/log" 2>&1 &
@@ -59,8 +61,8 @@ sleep 1
 
 # The daemon restarts; the window reconnects and asks for the file's
 # station, not the one it launched with.
-target/debug/omastorm-engine stop
-target/debug/omastorm-engine ensure
+"${OMASTORM_ENGINE_BINARY:?selected by mise test integration}" stop
+"${OMASTORM_ENGINE_BINARY:?selected by mise test integration}" ensure
 until_field site KAMX
 until_field locked true
 [[ $(lock_in_file) == KAMX ]] || fail "The reconnect rewrote the lock: $(cat "$OMASTORM_STATE")"

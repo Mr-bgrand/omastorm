@@ -1,10 +1,3 @@
-#!/usr/bin/env bash
-set -euo pipefail
-cd "$(dirname "$0")/.."
-check_dir="$PWD/target/check-engine-ui"
-mkdir -p "$check_dir"
-cp ui/*.qml ui/*.js ui/qmldir "$check_dir/"
-cat > "$check_dir/shell.qml" <<'QML'
 import QtQuick
 import Quickshell
 ShellRoot {
@@ -90,8 +83,3 @@ ShellRoot {
     }
     Timer { interval: 5000; running: true; onTriggered: Qt.quit() }
 }
-QML
-OMASTORM_QML="$check_dir/shell.qml" QT_QPA_PLATFORM=offscreen QT_QPA_PLATFORMTHEME=basic \
-  bash run.sh > "$check_dir/result.log" 2>&1
-cat "$check_dir/result.log"
-rg -q ENGINE_UI_PASSED "$check_dir/result.log"

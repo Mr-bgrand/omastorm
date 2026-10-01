@@ -2,8 +2,8 @@
 
 ## Check boundaries
 
-Use `mise check-engine`, `mise check-protocol`, `mise check-ui`, and
-`mise check-rendering` for iteration. `mise check` gates PR readiness;
+Use `mise check --scope engine`, `mise test integration --scope protocol`, `mise check --scope ui`, and
+`mise check --scope rendering --gpu` for iteration. `mise check` gates PR readiness;
 rendering changes also require GPU checks and inspected review captures as
 specified in CONTRIBUTING.md. Each focused command builds what it needs and
 runs independently; it does not require an earlier full check.
@@ -152,3 +152,21 @@ separately and profile decoder peak allocations (about 145 MiB in both builds).
 Keep the golden decoder and protocol contract fixed. This small workload
 provides no evidence supporting an engine replacement; collect multi-station
 and realistic mosaic replays before making that decision.
+
+## Tooling cleanup measurements (2026-10-01)
+
+On the isolated main worktree at `42e6909`, first-build engine verification
+spent 36 seconds in Clippy and 39 seconds building test binaries (77 seconds
+wall). Sandbox socket restrictions prevented eight local HTTP-fixture tests;
+with socket permission, the warm engine check passed in 2.13 seconds, including
+121 Rust unit tests in 1.47 seconds. CPU rendering math is a separate fast
+suite. These are measurements for this branch, not engine changes elsewhere.
+
+The migrated runner records commands, exact tree state, per-step times and
+wall time under ignored `target/evidence/`. It uses explicit published-pin
+binaries for UI, without compiling or replacing a candidate. Focused migrated
+transport/handoff/site/IP cases passed in 11.3 seconds; popover/reconnect/map
+views passed in 20.0 seconds. The map views now use a local TileJSON endpoint
+and checked-in recorded vector bytes, not a live map provider. These are
+headless integration timings; desktop reload and GPU fidelity need their
+own checks. Do not sum overlapping historical step times as wall time.

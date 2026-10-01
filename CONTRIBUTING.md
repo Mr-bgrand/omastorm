@@ -151,9 +151,20 @@ focused checks that cover the change:
 Focused checks support iteration. CI enforces the complete applicable PR suite.
 `mise test` runs unit and CPU rendering math without desktop processes.
 `mise test integration --scope protocol` exercises real socket processes.
+`mise test integration --scope ui --case popover` selects one UI scenario;
+repeat `--case` to select several. `--scope installer` covers binding docs,
+launcher discovery and engine installation. `--engine candidate --binary
+/path/to/engine` adds compatible candidate coverage after the published-pin
+run, without overwriting either binary. `mise build` prepares a local candidate.
+UI-only integration does not compile Rust. `mise test --scope ui` runs pure JS
+logic without Quickshell; `--scope tooling` runs isolated command/lifecycle cases.
 `mise check --scope engine` includes formatting, Clippy and engine unit checks.
-`mise check` remains available for complete verification. Logs and timings live
-under ignored `target/`; step durations overlap and cannot be summed for wall
+`mise check` remains available for complete verification. `mise check --changed`
+selects the union of the branch diff against `origin/main` plus staged,
+unstaged and new files; `--base` changes that comparison. Unknown paths select
+complete applicable checks. GPU verification is explicit with `--gpu`.
+ Logs and timings live
+under ignored `target/evidence/`; step durations overlap and cannot be summed for wall
 time. Tests must use owned isolated processes and deterministic fixture inputs.
 
 A new standalone script or public task needs a distinct operational reason;

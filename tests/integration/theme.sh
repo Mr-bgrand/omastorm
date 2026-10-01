@@ -1,27 +1,16 @@
 #!/usr/bin/env bash
 # Exercise real FileView events and the shipped IPC hook without desktop edits.
 set -euo pipefail
-cd "$(dirname "$0")/.."
+# shellcheck source=tests/integration/common.sh
+source "$(dirname "$0")/common.sh"
+cd "$(dirname "$0")/../.."
 mkdir -p review
 root="$PWD"
 tmp=$(mktemp -d "$PWD/review/theme-check.XXXXXX")
 trap 'if [[ -n ${pid:-} ]]; then kill "$pid" 2>/dev/null || true; wait "$pid" 2>/dev/null || true; fi; rm -rf "$tmp"' EXIT
 mkdir -p "$tmp/ui" "$tmp/theme"
 cp ui/Theme.qml ui/Toml.js "$tmp/ui/"
-cat > "$tmp/ui/shell.qml" <<'QML'
-import Quickshell
-import Quickshell.Io
-ShellRoot {
-    Theme { id: theme }
-    IpcHandler {
-        target: "check"
-        function snapshot(): string {
-            var s = theme.snapshot;
-            return [s.background, s.foreground, s.accent, s.baseSize, s.font].join(" ");
-        }
-    }
-}
-QML
+cp tests/harnesses/theme.qml "$tmp/ui/shell.qml"
 export QT_QPA_PLATFORM=offscreen QT_QPA_PLATFORMTHEME=basic
 export OMASTORM_THEME_DIR="$tmp/theme" OMASTORM_USER_SHELL="$tmp/user.toml"
 quickshell -p "$tmp/ui/shell.qml" > "$tmp/log" 2>&1 &

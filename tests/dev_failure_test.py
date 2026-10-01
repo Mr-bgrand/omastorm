@@ -3,7 +3,9 @@ import json
 import os
 from pathlib import Path
 import shutil
+import subprocess
 import tempfile
+import time
 import unittest
 from unittest.mock import patch
 
@@ -34,7 +36,8 @@ class DevFailureTests(unittest.TestCase):
         (self.repo / 'ui/Panel.qml').write_text('Panel {}\n')
         (self.repo / 'ui/qmldir').write_text('module Fixture\n')
         (self.repo / 'scripts').mkdir()
-        (self.repo / 'scripts/check.sh').write_text('# fixture\n')
+        for name in ('fetch-engine.sh','engine-pin.sh','cargo.sh'):
+            (self.repo / 'scripts' / name).write_text('# fixture\n')
         (self.repo / 'engine').mkdir()
         (self.repo / 'engine/release.pin').write_text('fixture\n')
         (self.repo / 'run.sh').write_text('# fixture\n')
@@ -229,6 +232,133 @@ class DevFailureTests(unittest.TestCase):
                 session.close()
         self.assertTrue((session.cache / 'engine.log').exists())
         self.assertTrue(session.runtime.exists())
+
+    def stale_owned_stage(self, *, pid=None, start=None, token='a' * 32):
+        plugins = self.home / '.config/omarchy/plugins'
+        dest = plugins / dev.ID
+        dest.mkdir(parents=True, exist_ok=True)
+        (dest / '.owner.json').write_text(json.dumps({
+            'schema': 1, 'id': dev.ID, 'token': token, 'pid': pid,
+            'runtime': None, 'start': start, 'root': str(self.repo),
+        }))
+        return dest, token
+
+    @staticmethod
+    def zombie_start_marker(pid):
+        fields = Path(f'/proc/{pid}/stat').read_text().rsplit(')', 1)[1].split()
+        return fields[19] if fields[0] == 'Z' else None
+
+    def test_exited_owned_zombie_marker_recovers_without_stale_process_wait(self):
+        zombie = subprocess.Popen(['/bin/true'], start_new_session=True)
+        marker = None
+        try:
+            deadline = time.monotonic() + 2
+            while time.monotonic() < deadline:
+                marker = self.zombie_start_marker(zombie.pid)
+                if marker is not None:
+                    break
+                time.sleep(.005)
+            self.assertIsNotNone(marker, 'true process did not remain observable as an owned zombie')
+            dest, _ = self.stale_owned_stage(pid=zombie.pid, start=marker)
+            runtime = self.home / 'fresh-runtime'
+            runtime.mkdir()
+            with patch.object(dev.tempfile, 'mkdtemp', return_value=str(runtime)), \
+                 patch.object(dev, 'Process', return_value=FakeDaemon()), \
+                 patch.object(dev, 'wait_until'), patch.object(dev, 'run'):
+                recovered = dev.Session('/unused-engine')
+                started = time.monotonic()
+                try:
+                    recovered.acquire()
+                    elapsed = time.monotonic() - started
+                    self.assertLess(elapsed, 1, 'stale zombie recovery waited for the old cleanup timeout')
+                    self.assertTrue(dest.exists(), 'recovery should replace the stale installation')
+                    self.assertEqual(json.loads((dest / '.owner.json').read_text())['token'], recovered.token)
+                finally:
+                    recovered.close()
+        finally:
+            if zombie.poll() is None:
+                zombie.kill()
+            zombie.wait(timeout=2)
+
+    def test_stale_owned_cache_removes_state_and_subcache_but_keeps_logs(self):
+        token = 'b' * 32
+        dest, _ = self.stale_owned_stage(token=token)
+        stale_cache = self.repo / 'target/dev' / token
+        (stale_cache / 'http-cache').mkdir(parents=True)
+        (stale_cache / 'state.json').write_text('{"lat":1}\n')
+        (stale_cache / 'config.toml').write_text('center_lat = 1\n')
+        (stale_cache / 'http-cache/entry').write_text('cached')
+        (stale_cache / 'engine.log').write_text('keep engine diagnostic\n')
+        (stale_cache / 'failure.log').write_text('keep failure diagnostic\n')
+        runtime = self.home / 'fresh-runtime-cache'
+        runtime.mkdir()
+        with patch.object(dev.tempfile, 'mkdtemp', return_value=str(runtime)), \
+             patch.object(dev, 'Process', return_value=FakeDaemon()), \
+             patch.object(dev, 'wait_until'), patch.object(dev, 'run') as host:
+            session = dev.Session('/unused-engine')
+            try:
+                session.acquire()
+                self.assertTrue((stale_cache / 'engine.log').exists())
+                self.assertTrue((stale_cache / 'failure.log').exists())
+                self.assertFalse((stale_cache / 'state.json').exists())
+                self.assertFalse((stale_cache / 'config.toml').exists())
+                self.assertFalse((stale_cache / 'http-cache').exists())
+                host.assert_not_called()
+                self.assertTrue(dest.exists())
+            finally:
+                session.close()
+
+    def test_develop_bakes_shaders_before_first_session_reload(self):
+        events = []
+
+        class Session:
+            def __init__(self, engine):
+                events.append(('session', engine))
+                self.daemon = type('Daemon', (), {'child': type('Child', (), {'poll': lambda self: None})()})()
+            def acquire(self):
+                events.append('acquire')
+            def reload(self):
+                events.append('reload')
+            def close(self):
+                events.append('close')
+
+        def command(*args, **kwargs):
+            events.append(('run', tuple(map(str, args))))
+
+        args = type('Args', (), {'engine': 'pin'})()
+        with patch.object(dev, 'run', side_effect=command), \
+             patch.object(dev, 'binary', return_value='/fixture/engine'), \
+             patch.object(dev, 'Session', Session), patch.object(dev, 'snapshot', return_value={}), \
+             patch.object(dev.signal, 'signal'), patch.object(dev.time, 'sleep', side_effect=KeyboardInterrupt):
+            dev.develop(args)
+
+        self.assertEqual(events[0], ('run', ('bash', str(self.repo / 'scripts/build-shader.sh'))))
+        self.assertLess(events.index('acquire'), events.index('reload'))
+        self.assertLess(events.index('reload'), events.index('close'))
+
+    def test_save_during_reload_is_not_absorbed_into_watch_baseline(self):
+        revisions=[];version=[0]
+        class Session:
+            def __init__(self,engine):self.daemon=type('Daemon',(),{'child':type('Child',(),{'poll':lambda self:None})()})()
+            def acquire(self):pass
+            def close(self):pass
+            def reload(self):
+                revisions.append(version[0])
+                version[0]+=1  # another save while the reload is running
+                if len(revisions)==3:raise KeyboardInterrupt
+        with patch.object(dev,'run'),patch.object(dev,'binary',return_value='/fixture'),patch.object(dev,'Session',Session),patch.object(dev,'snapshot',side_effect=lambda candidate:{'file':version[0]}),patch.object(dev.signal,'signal'),patch.object(dev.time,'sleep'):
+            dev.develop(type('Args',(),{'engine':'pin'})())
+        self.assertEqual(revisions,[0,1,2])
+
+    def test_candidate_snapshot_includes_embedded_engine_inputs(self):
+        data=self.repo/'engine/data';data.mkdir()
+        for name in ('sites.json','product.json'):(data/name).write_text('{}\n')
+        before=dev.snapshot(True)
+        (data/'sites.json').write_text('{"changed":true}\n')
+        after=dev.snapshot(True)
+        self.assertNotEqual(before[str(data/'sites.json')],after[str(data/'sites.json')])
+        self.assertIn(str(data/'product.json'),after)
+        self.assertNotIn(str(data/'sites.json'),dev.snapshot(False))
 
 
 if __name__ == '__main__':
