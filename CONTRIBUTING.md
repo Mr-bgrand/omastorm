@@ -155,7 +155,22 @@ focused checks that cover the change:
 | Engine logic, decoding, storage | `mise check-engine` |
 | Wire output, commands, daemon lifecycle | `mise check-protocol` |
 | QML, launcher, installer, UI integration | `mise check-ui` |
+| UI-only review against the published engine | `mise check-ui-pinned` |
+| Installer or launcher changes | `mise check-installer` |
 | Shader sampling, camera, rendering | `mise check-rendering` |
+
+Use `mise tasks` to discover the supported commands; the scripts underneath are
+implementation helpers. `mise check-ui-pinned` uses the same preparation and
+prebuilt checks as UI CI: it verifies the published engine pin, copies this
+checkout's tracked files and unignored new files into a fresh tree under
+`target/review-ui.*`, and runs without compiling Rust. The tree remains for
+inspection; its check logs are under `target/check/logs/` inside that tree.
+This checks UI compatibility with the published engine, not engine source changes.
+For reviewing another branch, run the task in a separate checkout of the PR;
+it copies the checkout where it is invoked, not a remote PR automatically.
+The installed plugin and its running daemon can stay open: checks use their own
+runtime directories and sockets. If an agent sandbox blocks local sockets,
+rerun the same task with the required execution permission.
 
 Focused checks support iteration and commits; they do not establish PR readiness.
 Run `mise check` before marking a PR ready, plus the rendering checks and captures
@@ -199,10 +214,10 @@ branch protection to require that single check. Report required checks that coul
 not run explicitly.
 
 For shader, sampling, or camera changes, also run `mise check --gpu` and
-`bash scripts/capture-review.sh`, inspect the images in `review/`, and include
+`mise capture-review`, inspect the images in `review/`, and include
 captures with the review. The rendering test replays the shader's sampling
 rule in Rust; update both when changing that rule. Rebuild changed radar,
-tile, or grid shaders with `bash scripts/build-shader.sh` and commit their `.qsb` files.
+tile, or grid shaders with `mise build-shaders` and commit their `.qsb` files.
 The GPU checks need a desktop OpenGL context; software Qt Quick is unsupported.
 If the environment cannot run a required check, report that explicitly.
 

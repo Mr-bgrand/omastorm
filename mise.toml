@@ -79,9 +79,33 @@ run = "bash scripts/check.sh protocol"
 description = "UI, launcher, installer, and candidate binary checks"
 run = "bash scripts/check.sh ui"
 
+[tasks.check-ui-pinned]
+description = "UI-only review against the verified published engine, in a disposable tree (no Rust build)"
+run = """
+set -eu
+mkdir -p target
+review_dir=$(mktemp -d "$PWD/target/review-ui.XXXXXX")
+printf 'Disposable UI review tree and logs: %s\n' "$review_dir"
+bash scripts/prepare-pinned-ui-check.sh "$review_dir"
+cd "$review_dir"
+bash scripts/check.sh ui --prebuilt
+"""
+
+[tasks.check-installer]
+description = "Installer, plugin linking, launcher, and candidate binary checks"
+run = "bash scripts/check.sh installer"
+
 [tasks.check-rendering]
 description = "Ignored GPU rendering tests (desktop OpenGL required)"
 run = "bash scripts/check.sh rendering"
+
+[tasks.capture-review]
+description = "Archived radar captures at multiple window sizes and a theme-change check; images in review/"
+run = "bash scripts/capture-review.sh"
+
+[tasks.build-shaders]
+description = "Compile radar, tile, and grid shaders into the committed Qt .qsb packages"
+run = "bash scripts/build-shader.sh"
 
 [tasks.bench-engine]
 description = "Recorded-input engine baseline; no live provider requests"
