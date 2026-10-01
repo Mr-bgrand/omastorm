@@ -160,7 +160,14 @@ focused checks that cover the change:
 | Shader sampling, camera, rendering | `mise check-rendering` |
 
 Use `mise tasks` to discover the supported commands; the scripts underneath are
-implementation helpers. `mise check-ui-pinned` uses the same preparation and
+implementation helpers. For routine verification, invoke the named tasks rather
+than individual scripts or `mise exec -- cargo ...`: `mise exec` selects the
+toolchain but does not select the repository's verification workflow. Use
+`mise check-engine` for engine formatting, lint, and unit tests, `mise
+check-protocol` for socket/protocol tests, or `mise test` for all Rust unit and
+socket tests. Report the task invoked and its result when handing off work.
+
+`mise check-ui-pinned` uses the same preparation and
 prebuilt checks as UI CI: it verifies the published engine pin, copies this
 checkout's tracked files and unignored new files into a fresh tree under
 `target/review-ui.*`, and runs without compiling Rust. The tree remains for
