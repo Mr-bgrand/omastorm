@@ -75,7 +75,7 @@ class Report:
         finally:
             process.close()
         elapsed = time.monotonic() - start
-        self.rows.append(dict(step=name, status=status, seconds=elapsed))
+        self.rows.append(dict(step=name, command=list(map(str,argv)), status=status, seconds=elapsed))
         print(f'{name}: {"PASS" if status == 0 else "FAIL"} {elapsed:.2f}s ({log})', flush=True)
         if status:
             print(log.read_text()[-12000:])
@@ -107,7 +107,7 @@ def unit(scope='all'):
         report.finish()
 
 
-def integration(args):
+def validate_integration(args):
     requested = args.case or (list(UI + INSTALLER) if args.scope in ('all', 'ui') else
                              list(INSTALLER) if args.scope == 'installer' else [])
     unknown = set(requested) - set(UI + INSTALLER)
@@ -115,6 +115,11 @@ def integration(args):
         raise ValueError('Unknown integration scenarios: ' + ', '.join(sorted(unknown)))
     if args.case and args.scope not in ('all', 'ui', 'installer'):
         raise ValueError('--case selects UI/installer scenarios; use --scope ui, installer, or all')
+    return requested
+
+
+def integration(args):
+    requested = validate_integration(args)
     report = Report('integration')
     # Scenarios retaining their own fixed log paths cannot overlap in one tree.
     (ROOT / 'target').mkdir(exist_ok=True)
@@ -134,10 +139,23 @@ def integration(args):
             if not requested:
                 return
             engine = binary(args.engine, args.binary)
+            import hashlib
+            report.rows.append(dict(selected_engine=args.engine, binary=str(engine), sha256=hashlib.sha256(engine.read_bytes()).hexdigest()))
             if args.engine == 'candidate':
                 # Matching numbers alone never replace published coverage.
                 pin_engine = binary('pin')
+                report.rows.append(dict(selected_engine='pin', binary=str(pin_engine), sha256=hashlib.sha256(pin_engine.read_bytes()).hexdigest()))
                 run_cases(requested, pin_engine, report, 'pin')
+                from release import smoke
+                smoke(engine)
+                import re
+                source_protocol = re.findall(r'^pub const VERSION: u32 = (\d+);$', (ROOT / 'engine/src/protocol.rs').read_text(), re.M)
+                ui_protocol = re.findall(r'message\.v !== (\d+)', (ROOT / 'ui/Engine.qml').read_text())
+                if len(source_protocol) != 1 or len(ui_protocol) != 1:
+                    raise RuntimeError('Could not determine unique engine/UI protocol versions.')
+                if source_protocol != ui_protocol:
+                    print('Candidate/UI protocols differ: published UI coverage passed; test source engine independently.', flush=True)
+                    return
             run_cases(requested, engine, report, args.engine, pin_engine if args.engine == 'candidate' else engine)
         finally:
             report.finish()
@@ -185,24 +203,30 @@ def run_cases(names, engine, report, mode, pinned=None):
 def check(args):
     scopes = {args.scope}
     if args.changed:
-        import importlib.util
-        spec = importlib.util.spec_from_file_location('changes', ROOT / 'scripts/ci-changes.py')
-        changes = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(changes)
-        _, paths = changes.changed_paths(args.base, 'HEAD')
-        for argv in (['git','diff','--name-only','--no-renames','-z','HEAD'],
-                     ['git','ls-files','--others','--exclude-standard','-z']):
-            paths += run(*argv, capture_output=True).stdout.decode().split('\0')
-        groups = changes.classify([p for p in paths if p])
-        scopes = {scope for scope in ('engine','ui','installer') if groups[scope]}
-        if groups['release'] or groups['shell']:
+        import selection
+        base, paths = selection.changed_paths(args.base, 'HEAD', local=True)
+        groups = selection.classify(paths, full=base is None)
+        scopes = {'tooling'} | {scope for scope in ('engine','ui','installer') if groups[scope]}
+        run('git', 'diff', '--check', base or 'HEAD', timeout=30)
+        if groups['engine']:
+            scopes.add('protocol')
+        if groups['release'] or groups['shell'] or groups['tooling']:
             scopes.add('tooling')
+        if groups['shell']:
+            run('python3', 'scripts/tooling/cli.py', 'lint', '--scope', 'tooling', timeout=600)
+        if groups['release']:
+            print('Native platform/artifact validation is required in CI on x86_64 and aarch64.', flush=True)
+        if groups['rendering'] and not args.gpu:
+            print('Rendering paths changed: run mise check --gpu --scope rendering and attach review captures.', flush=True)
+        if groups['pin']:
+            run('python3', 'scripts/tooling/release.py', 'verify-pin', timeout=600)
         print('Changed-path scopes: ' + ', '.join(sorted(scopes)), flush=True)
     from argparse import Namespace
     if 'all' in scopes:
         run('python3', 'scripts/tooling/cli.py', 'lint', timeout=600)
         unit()
         integration(Namespace(scope='all', case=[], engine='pin', binary=None))
+        run('python3', 'scripts/tooling/release.py', 'verify-pin', timeout=600)
     else:
         for scope in sorted(scopes):
             if scope == 'engine':
@@ -216,6 +240,11 @@ def check(args):
                 integration(Namespace(scope=scope, case=[], engine='pin', binary=None))
             elif scope == 'tooling':
                 unit('tooling')
+    run('python3', 'scripts/tooling/docs.py')
     if args.gpu or 'rendering' in scopes:
-        run('bash', ROOT / 'scripts/cargo.sh', 'test', '--offline', '--locked', '--test', 'rendering', '--', '--ignored',
-            env=dict(os.environ, QT_QPA_PLATFORM='offscreen'), timeout=600)
+        report = Report('gpu')
+        try:
+            report.step('rendering', ['bash', ROOT / 'scripts/cargo.sh', 'test', '--offline', '--locked', '--test', 'rendering', '--', '--ignored'],
+                        env=dict(os.environ, QT_QPA_PLATFORM='offscreen'), timeout=600)
+        finally:
+            report.finish()

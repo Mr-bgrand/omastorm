@@ -14,6 +14,8 @@ source "$(dirname "$0")/common.sh"
 cd "$(dirname "$0")/../.."
 check_dir="$PWD/target/check-keys"
 mkdir -p "$check_dir"
+stage_ui "$check_dir/ui"
+cp tests/harnesses/location.qml "$check_dir/ui/shell.qml"
 rm -f "$check_dir/state.json"
 # Stokesdale, NC, as Omarchy's weather panel writes it: the camera sits on
 # the place; KFCX (Roanoke) is the nearest radar.
@@ -29,7 +31,7 @@ bogus = "x"
 reset = 0
 TOML
 export QT_QPA_PLATFORM=offscreen QT_QPA_PLATFORMTHEME=basic QT_QUICK_BACKEND=rhi QSG_RHI_BACKEND=opengl
-OMASTORM_CONFIG="$check_dir/config.toml" OMASTORM_LOCATION="$check_dir/weather.json" OMASTORM_STATE="$check_dir/state.json" bash run.sh > "$check_dir/log" 2>&1 &
+OMASTORM_QML="$check_dir/ui/shell.qml" OMASTORM_CONFIG="$check_dir/config.toml" OMASTORM_LOCATION="$check_dir/weather.json" OMASTORM_STATE="$check_dir/state.json" bash run.sh > "$check_dir/log" 2>&1 &
 pid=$!
 trap 'kill "$pid" 2>/dev/null || true; wait "$pid" 2>/dev/null || true' EXIT
 call() { quickshell ipc --pid "$pid" call keys "$@"; }
@@ -47,8 +49,7 @@ state_exact() { # file, lat, lon
   jq -e --argjson lat "$2" --argjson lon "$3" \
     '.lat == $lat and .lon == $lon' "$1" > /dev/null 2>&1
 }
-for _ in {1..100}; do call status > /dev/null 2>&1 && break; sleep .1; done
-call status > /dev/null || fail "The window's keys IPC never answered"
+wait_window_ready "$pid" || fail "The window never became ready for navigation"
 
 # The table over the defaults: the good line applies, every mistake is
 # reported once and leaves its default in place, a key bound twice stays
@@ -72,6 +73,7 @@ expect 'The header names the weather location' weather "$(field locationSource)"
 # Each action's effect, through the same function the shortcuts call.
 until_field site KFCX
 call run reset
+wait_window_ready "$pid" || fail "The reset camera never settled"
 span=$(field span); lon=$(field lon); lat=$(field lat)
 call run pan_left
 less "$(field lon)" "$lon" || fail "pan_left did not move the centre west: $lon -> $(field lon)"
@@ -109,7 +111,7 @@ quickshell ipc --pid "$pid" call location go 35.4 -97.5 "Moore"
 until_field lat 35.4
 until_field lon -97.5
 until_field locationSource state
-sleep 0.6
+wait_window_ready "$pid" || fail "The picked camera never settled"
 state_exact "$check_dir/state.json" 35.4 -97.5 || fail "search location did not keep exact centre" "$(cat "$check_dir/state.json")"
 grep -q home_site "$check_dir/config.toml" && fail "search wrote home_site into config.toml"
 

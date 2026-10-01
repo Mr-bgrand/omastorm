@@ -55,4 +55,4 @@ npx wrangler pages deploy site --project-name omastorm --branch main
 
 After deployment, check `/robots.txt` and `/sitemap.xml` return their actual
 files, then submit the sitemap in Google Search Console. Account settings
-and outreach follow-ups are in [docs/discovery.md](../docs/discovery.md).
+and outreach follow-ups stay in private maintainer notes.

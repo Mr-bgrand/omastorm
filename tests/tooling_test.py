@@ -1,5 +1,7 @@
 """Tooling regressions run with mocked host commands and isolated installs."""
 import importlib.util
+import contextlib
+import io
 import json
 import os
 from pathlib import Path
@@ -14,6 +16,20 @@ import dev
 
 
 class Commands(unittest.TestCase):
+    def test_tooling_lint_covers_the_extensionless_theme_hook(self):
+        with patch('sys.argv', ['omastorm', 'lint', '--scope', 'tooling']), patch.object(cli, 'run') as run:
+            self.assertEqual(cli.main(), 0)
+        argv = run.call_args.args
+        self.assertEqual(argv[0], 'shellcheck')
+        self.assertIn(cli.ROOT / 'scripts/hooks/omastorm', argv)
+
+    def test_invalid_integration_usage_exits_two_before_starting_processes(self):
+        for argv in (['test','integration','--case','nonexistent-case'],['test','integration','--scope','protocol','--case','popover']):
+            with patch('sys.argv',['omastorm',*argv]),patch('suite.integration') as start,contextlib.redirect_stderr(io.StringIO()),self.assertRaises(SystemExit) as error:
+                cli.main()
+            self.assertEqual(error.exception.code,2)
+            start.assert_not_called()
+
     def test_eight_public_commands_and_help(self):
         p = cli.parser()
         self.assertEqual(set(p._subparsers._group_actions[0].choices),

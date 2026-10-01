@@ -266,11 +266,9 @@ class DevFailureTests(unittest.TestCase):
                  patch.object(dev, 'Process', return_value=FakeDaemon()), \
                  patch.object(dev, 'wait_until'), patch.object(dev, 'run'):
                 recovered = dev.Session('/unused-engine')
-                started = time.monotonic()
                 try:
-                    recovered.acquire()
-                    elapsed = time.monotonic() - started
-                    self.assertLess(elapsed, 1, 'stale zombie recovery waited for the old cleanup timeout')
+                    with patch.object(dev.time, 'sleep', side_effect=AssertionError('stale zombie recovery must not wait')):
+                        recovered.acquire()
                     self.assertTrue(dest.exists(), 'recovery should replace the stale installation')
                     self.assertEqual(json.loads((dest / '.owner.json').read_text())['token'], recovered.token)
                 finally:

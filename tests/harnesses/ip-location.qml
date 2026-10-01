@@ -6,6 +6,7 @@ ShellRoot {
     id: test
     Engine {
         id: fake
+        socketFactory: Component { MockSocket {} }
         property var sent: []
         function send(command) { sent = sent.concat([command]); }
     }
@@ -49,18 +50,15 @@ ShellRoot {
     }
     function waitSettled(next) {
         waiter.next = next;
-        waiter.ticks = 0;
         waiter.start();
     }
     Timer {
         id: waiter
         property var next
-        property int ticks: 0
         interval: 20; repeat: true
         onTriggered: {
-            ticks++;
             var s = PluginSession;
-            if (s.locationPending && ticks < 100) return;
+            if (s.locationPending || s.locator.running || s.locator.queued) return;
             stop();
             try { next(); } catch (e) { console.error(e); Qt.quit(); }
         }

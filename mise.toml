@@ -21,11 +21,11 @@ description = "Fast unit tests; integration supports focused selection"
 run = "python3 scripts/tooling/cli.py test"
 
 [tasks.lint]
-description = "Formatting and language checks"
+description = "Rust format/Clippy, QML/JS syntax and shell checks"
 run = "python3 scripts/tooling/cli.py lint"
 
 [tasks.format]
-description = "Apply supported language formatters"
+description = "Apply rustfmt"
 run = "python3 scripts/tooling/cli.py format"
 
 [tasks.build]

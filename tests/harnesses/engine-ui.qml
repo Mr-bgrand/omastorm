@@ -5,10 +5,13 @@ ShellRoot {
     function check(ok, message) { if (!ok) throw new Error(message); }
     property string good: ""
     property var tiles: []
+    property bool roundTripsStarted: false
     Connections { target: engine; function onTileReady(tile) { tiles.push(tile); } }
     Timer {
-        interval: 1000; running: true
+        interval: 20; running: true; repeat: true
         onTriggered: {
+            if (!engine.state || !engine.state.frame || !engine.sites.length) return;
+            stop();
             check(!!engine.state, "No socket state received");
             check(engine.sites.length === 163, "No site table received");
             check(engine.texture.indexOf("file://") === 0, "No engine texture");
@@ -64,14 +67,17 @@ ShellRoot {
             // network), and the four z5 tiles around KTLX come back as ne masks.
             engine.send({type: "select_site", id: "XXXX"});
             engine.send({type: "tiles_needed", z: 5, x0: 7, y0: 12, x1: 8, y1: 13});
+            roundTripsStarted = true;
         }
     }
     Timer {
-        interval: 2000; running: true
+        interval: 20; running: roundTripsStarted; repeat: true
         onTriggered: {
+            var served = tiles.filter(t => t.set === "ne" && t.z === 5 && t.path.indexOf("tiles/ne/5/") === 0);
+            if (engine.rejection.indexOf("XXXX") < 0 || served.length < 4) return;
+            stop();
             check(!!engine.state && engine.selectedSiteId === "KTLX", "Rejected select_site changed state");
             check(engine.rejection.indexOf("XXXX") >= 0, "Daemon did not answer the rejected command to this client: " + JSON.stringify(engine.rejection));
-            var served = tiles.filter(t => t.set === "ne" && t.z === 5 && t.path.indexOf("tiles/ne/5/") === 0);
             check(served.length === 4, "Daemon did not answer tiles_needed with four ne tiles: " + tiles.length);
             engine.receive('{"type":"state","v":99}');
             check(engine.incompatible && engine.state === null && engine.texture === "", "Version mismatch still renders");

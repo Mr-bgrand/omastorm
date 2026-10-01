@@ -39,9 +39,17 @@ ShellRoot {
         check(Math.abs(origin.x-map.sx(map.siteMx))<1e-7
             && Math.abs(origin.y-map.sy(map.siteMy))<1e-7, "Coverage is not attached to the camera origin");
     }
+    // Start when the engine frame and images exist. Subsequent assertions run
+    // after the binding/layout callbacks queued by each camera change.
     Timer {
-        interval: 500; repeat: true; running: true
+        interval: 20; repeat: true; running: true
         onTriggered: {
+            if (!map.scan || !map.radarReady || !map.sites.length) return;
+            stop();
+            Qt.callLater(advance);
+        }
+    }
+    function advance() {
             try {
                 if (stage === 0) {
                     check(map.sites.length === 163, "Missing engine station table");
@@ -107,8 +115,8 @@ ShellRoot {
                     });
                 }
                 stage++;
+                if (stage <= 5) Qt.callLater(advance);
             } catch (e) { console.error(e); Qt.quit(); }
-        }
     }
     Timer { interval: 10000; running: true; onTriggered: Qt.quit() }
 }

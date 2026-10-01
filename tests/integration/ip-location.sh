@@ -7,7 +7,7 @@ source "$(dirname "$0")/common.sh"
 cd "$(dirname "$0")/../.."
 scratch=$(mktemp -d "${TMPDIR:?}/omastorm-ip-check.XXXXXX")
 trap 'rm -rf "$scratch"' EXIT
-mkdir -p "$scratch/bin" "$scratch/runtime"
+mkdir -p "$scratch/bin"
 stage_ui "$scratch/ui"
 printf ' .pragma library\nvar settings = {development:true};\n' > "$scratch/ui/Instance.js"
 
@@ -27,11 +27,16 @@ EOF
 chmod +x "$scratch/bin/curl"
 
 cp tests/harnesses/ip-location.qml "$scratch/ui/Test.qml"
+cp tests/harnesses/MockSocket.qml "$scratch/ui/MockSocket.qml"
+printf 'MockSocket 1.0 MockSocket.qml\n' >> "$scratch/ui/qmldir"
 
-OMASTORM_CONFIG="$scratch/empty.toml" OMASTORM_STATE="$scratch/state.json" \
+# This harness resets remembered values directly to exercise location logic.
+# Disable disk writes so a previous case's FileView reload cannot overwrite
+# those controlled inputs. Real state-file persistence is checked by location.
+OMASTORM_CONFIG="$scratch/empty.toml" OMASTORM_STATE="" \
   OMASTORM_LOCATION_URL="file://$scratch/ok.json" \
   PATH="$scratch/bin:$PATH" \
-  XDG_RUNTIME_DIR="$scratch/runtime" QT_QPA_PLATFORM=offscreen \
+  QT_QPA_PLATFORM=offscreen \
   timeout 20 quickshell -p "$scratch/ui/Test.qml" > "$scratch/log" 2>&1 || { cat "$scratch/log"; exit 1; }
 cat "$scratch/log"
 rg -q IP_LOCATION_PASSED "$scratch/log"

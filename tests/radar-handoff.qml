@@ -7,6 +7,7 @@ ShellRoot {
     property var geometry
     property var heldFrame
     property int stage: 0
+    property bool saving: false
     function check(ok, message) { if (!ok) throw new Error(message); }
     function copy(value) { return JSON.parse(JSON.stringify(value)); }
     function position() {
@@ -20,18 +21,21 @@ ShellRoot {
               "Loading or hand-off moved the map: " + geometry + " -> " + next);
     }
     function capture(name, after) {
+        saving = true;
         app.surfaceItem.grabToImage(result => {
-            result.saveToFile(Quickshell.env("OMASTORM_REVIEW") + "/handoff-" + name + ".png");
+            check(result.saveToFile(Quickshell.env("OMASTORM_REVIEW") + "/handoff-" + name + ".png"), "Capture failed");
+            saving = false;
             if (after) after();
         });
     }
     Timer {
-        interval: 500; repeat: true; running: true
+        interval: 20; repeat: true; running: true
         onTriggered: {
+            if (saving) return;
             try {
                 var engine = app.connection, map = app.mapItem;
                 if (stage === 0) {
-                    if (!map.radarReady) return;
+                    if (!map.radarReady || !app.store.initialized || app.applyingView) return;
                     original = copy(engine.state);
                     // Freeze the socket so deliberately delayed images cannot
                     // be overwritten by a daemon heartbeat during the check.
@@ -40,15 +44,19 @@ ShellRoot {
                     engine.state = copy(original);
                     engine.error = "";
                 } else if (stage === 1) {
+                    if (!map.radarReady) return;
                     geometry = position();
                     heldFrame = map.renderScan;
-                    capture("ready");
-                    var next = copy(original);
-                    next.frame.texture = "tex/delayed-handoff.png";
-                    next.frame.azimuthLut = "tex/delayed-lookup.png";
-                    next.frame.rays = 17;
-                    next.frame.gates = 23;
-                    engine.state = next;
+                    capture("ready", () => {
+                        var next = copy(original);
+                        next.frame.texture = "tex/delayed-handoff.png";
+                        next.frame.azimuthLut = "tex/delayed-lookup.png";
+                        next.frame.rays = 17;
+                        next.frame.gates = 23;
+                        engine.state = next;
+                        stage = 2;
+                    });
+                    return;
                 } else if (stage === 2) {
                     stable();
                     check(map.radarReady && map.renderScan === heldFrame,
@@ -70,8 +78,10 @@ ShellRoot {
                 } else if (stage === 4) {
                     stable();
                     check(!map.radarReady, "Loading placeholder drew old radar");
-                    capture("loading", () => { engine.state = copy(original); });
+                    capture("loading", () => { engine.state = copy(original); stage = 5; });
+                    return;
                 } else if (stage === 5) {
+                    if (!map.radarReady) return;
                     stable();
                     check(map.radarReady, "The first scan failed to appear");
                     var other = copy(original);
@@ -95,12 +105,11 @@ ShellRoot {
                     check(!map.radarReady, "Idle view retained radar");
                     engine.state = copy(original);
                 } else if (stage === 8) {
+                    if (!map.radarReady) return;
                     stable();
                     check(map.radarReady, "Radar failed to recover after hand-off");
-                    capture("recovered");
-                } else {
-                    console.log("RADAR_HANDOFF_PASSED");
-                    Qt.quit();
+                    capture("recovered", () => { console.log("RADAR_HANDOFF_PASSED"); Qt.quit(); });
+                    return;
                 }
                 stage++;
             } catch (e) { console.error(e); Qt.quit(); }

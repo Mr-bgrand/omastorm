@@ -644,7 +644,7 @@ ShellRoot {{
             onTriggered: {{
                 ticks++;
                 var ready = map.shaderItem.sweep.status === Image.Ready && map.shaderItem.azimuthLut.status === Image.Ready;
-                if (ready && ticks >= 6) {{
+                if (ready) {{
                     stop();
                     map.shaderItem.grabToImage(result => {{ result.saveToFile({out}); Qt.quit(); }});
                 }} else if (ticks >= 80) {{
@@ -1030,7 +1030,6 @@ ShellRoot {{
         return map.shaderItem.sweep.status === Image.Ready && map.shaderItem.azimuthLut.status === Image.Ready;
     }}
     property int stage: 0
-    property int settled: 0
     property var heldLabels
     property var heldRequest
     Timer {{
@@ -1039,9 +1038,9 @@ ShellRoot {{
         onTriggered: {{
             ticks++;
             if (ticks >= 120) {{ console.log("HARNESS_TIMEOUT stage", stage, "request", JSON.stringify(map.request), "displayed", map.displayedLevel, map.error, engine.error); Qt.quit(); return; }}
-            if (stage < 0 || !ready()) {{ settled = 0; return; }}
-            // A few quiet ticks let asynchronous tile images settle.
-            if (++settled < 4) return;
+            if (stage < 0 || !ready()) return;
+            if (map.reportedLat !== map.centerLat || map.reportedLon !== map.centerLon
+                || map.reportedSpan !== map.span) return;
             if (stage === 0) {{
                 stage = -1;
                 heldLabels = map.labels;
@@ -1050,7 +1049,7 @@ ShellRoot {{
                 map.grabToImage(result => {{
                     result.saveToFile({out_a});
                     map.look(map.viewCenterX + {dx} * map.unitsPerPixel, map.viewCenterY + {dy} * map.unitsPerPixel);
-                    settled = 0; stage = 1;
+                    stage = 1;
                 }});
             }} else if (stage === 1) {{
                 stage = -1;

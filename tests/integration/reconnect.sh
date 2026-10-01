@@ -14,6 +14,9 @@ cd "$(dirname "$0")/../.."
 scratch=$PWD/target/check-reconnect
 rm -rf "$scratch"
 mkdir -p "$scratch/r"
+stage_ui "$scratch/ui"
+cp tests/harnesses/location.qml "$scratch/ui/shell.qml"
+export OMASTORM_QML="$scratch/ui/shell.qml"
 # Runtime/cache are selected and owned by the shared runner.
 export QT_QPA_PLATFORM=offscreen QT_QPA_PLATFORMTHEME=basic QT_QUICK_BACKEND=rhi QSG_RHI_BACKEND=opengl
 export OMASTORM_CONFIG="$scratch/config.toml" OMASTORM_STATE="$scratch/state.json"
@@ -45,8 +48,7 @@ lock_in_file() {
          elif .lock.target.kind == "site" then .lock.target.siteId
          else "" end' "$OMASTORM_STATE"
 }
-for _ in {1..100}; do call status > /dev/null 2>&1 && break; sleep .1; done
-call status > /dev/null || fail "The window's keys IPC never answered"
+wait_window_ready "$pid" || fail "The window never became ready for navigation"
 until_field site KFCX
 until_field locked true
 until_field lockSource state
@@ -54,9 +56,19 @@ until_field lockSource state
 # The other client locks KAMX. This window's next remembered movement must
 # not write KFCX back over it.
 write_state KAMX
-sleep 0.5
+adopted=false
+for _ in {1..100}; do
+  if [[ $(quickshell ipc --pid "$pid" call locationTest lockId) == KAMX ]]; then adopted=true; break; fi
+  sleep .1
+done
+[[ $adopted == true ]] || fail "The other client's lock was not adopted"
+wait_window_ready "$pid" || fail "The other client's view never settled"
+before_lon=$(field lon)
 call run pan_left
-sleep 1
+want_lat=$(field lat); want_lon=$(field lon); want_span=$(field span)
+[[ $want_lon != "$before_lon" ]] || fail "Pan did not move the camera"
+wait_saved_view "$OMASTORM_STATE" "$want_lat" "$want_lon" "$want_span" \
+  || fail "Pan did not persist the changed camera: $(cat "$OMASTORM_STATE")"
 [[ $(lock_in_file) == KAMX ]] || fail "A pan wrote this window's old lock over the other client's: $(cat "$OMASTORM_STATE")"
 
 # The daemon restarts; the window reconnects and asks for the file's

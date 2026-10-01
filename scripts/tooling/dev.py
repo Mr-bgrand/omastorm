@@ -205,7 +205,7 @@ def develop(args):
         signal.signal(sig, interrupted)
     previous = snapshot(args.engine == 'candidate')
     if args.engine == 'candidate':
-        run('bash', ROOT / 'scripts/cargo.sh', 'build', '--offline', '--locked', timeout=600)
+        run('bash', ROOT / 'scripts/cargo.sh', 'build', '--offline', '--locked', '--target-dir', ROOT / 'target', timeout=600)
     run('bash', ROOT / 'scripts/build-shader.sh')
     session = Session(binary(args.engine))
     try:
@@ -225,7 +225,7 @@ def develop(args):
             if any(p.endswith('.frag') for p in changed):
                 run('bash', ROOT / 'scripts/build-shader.sh')
             if args.engine == 'candidate' and any('/engine/' in p or p.endswith('Cargo.lock') or p.endswith('Cargo.toml') for p in changed):
-                run('bash', ROOT / 'scripts/cargo.sh', 'build', '--offline', '--locked', timeout=600)
+                run('bash', ROOT / 'scripts/cargo.sh', 'build', '--offline', '--locked', '--target-dir', ROOT / 'target', timeout=600)
                 session.start_daemon()
             session.reload()
             # Saves during a build/rescan must remain pending for the next

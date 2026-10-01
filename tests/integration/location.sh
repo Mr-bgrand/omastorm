@@ -8,6 +8,8 @@ source "$(dirname "$0")/common.sh"
 cd "$(dirname "$0")/../.."
 check_dir="$PWD/target/check-location"
 mkdir -p "$check_dir"
+stage_ui "$check_dir/ui"
+cp tests/harnesses/location.qml "$check_dir/ui/shell.qml"
 printf '{\n  "name": "Stokesdale",\n  "latitude": 36.23708,\n  "longitude": -79.97948\n}\n' > "$check_dir/weather.json"
 : > "$check_dir/none.toml"
 export QT_QPA_PLATFORM=offscreen QT_QPA_PLATFORMTHEME=basic QT_QUICK_BACKEND=rhi QSG_RHI_BACKEND=opengl
@@ -15,12 +17,17 @@ fail() { printf '%s\n' "$@" >&2; [[ -f $check_dir/log ]] && cat "$check_dir/log"
 expect() { [[ "$3" == "$2" ]] || fail "$1" "Expected: $2" "Actual:   $3"; }
 start() { # config, location, state
   local config=$1 location=$2 state=$3
-  OMASTORM_CONFIG="$config" OMASTORM_LOCATION="$location" OMASTORM_STATE="$state" \
+  OMASTORM_QML="$check_dir/ui/shell.qml" \
+    OMASTORM_CONFIG="$config" OMASTORM_LOCATION="$location" OMASTORM_STATE="$state" \
     bash run.sh > "$check_dir/log" 2>&1 &
   pid=$!
   trap 'kill "$pid" 2>/dev/null || true; wait "$pid" 2>/dev/null || true' EXIT
-  for _ in {1..100}; do quickshell ipc --pid "$pid" call keys status > /dev/null 2>&1 && return; sleep .1; done
-  fail "The window never answered"
+  until_ready
+}
+until_ready() {
+  # IPC registration precedes engine initialization and the restored camera's
+  # settle guard. Driving the map during that guard discards the first pan.
+  wait_window_ready "$pid" || fail "The window never became ready for navigation"
 }
 stop() { kill "$pid" 2>/dev/null || true; wait "$pid" 2>/dev/null || true; trap - EXIT; pid=; }
 call() { quickshell ipc --pid "$pid" call keys "$@"; }
@@ -58,8 +65,8 @@ until_field lon -79.979
 until_field locked false
 # Pan writes state, never config. Reset returns to the weather place.
 call run pan_left
-for _ in {1..30}; do grep -q '"lat"' "$check_dir/state-weather.json" 2>/dev/null && break; sleep .1; done
-grep -q '"lat"' "$check_dir/state-weather.json" || fail "Pan did not write state.json" "$(cat "$check_dir/state-weather.json" 2>/dev/null || true)"
+wait_saved_view "$check_dir/state-weather.json" "$(field lat)" "$(field lon)" "$(field span)" \
+  || fail "Pan did not write the changed view to state.json" "$(cat "$check_dir/state-weather.json" 2>/dev/null || true)"
 grep -q home_site "$check_dir/none.toml" && fail "Pan wrote config.toml"
 panned_lon=$(field lon)
 call run reset
@@ -78,7 +85,7 @@ until_field locationSource state
 until_field locked false
 # A queued settle from the previous camera must not pull the view back, and
 # must not rewrite the pick as floating-point noise (#32).
-sleep 0.6
+until_ready
 until_field lat 35.4
 until_field lon -97.5
 state_exact "$check_dir/state-weather.json" 35.4 -97.5 || fail "Location picker did not keep exact centre" "$(cat "$check_dir/state-weather.json")"
@@ -170,11 +177,15 @@ until_field lat 35.5
 until_field lon -97.4
 call run pan_left
 call run zoom_in
-sleep 1
 want_lat=$(field lat)
 want_lon=$(field lon)
 want_span=$(field span)
-grep -q '"lat"' "$check_dir/state.json" || fail "Pan did not persist state for reopen" "$(cat "$check_dir/state.json")"
+[[ $want_lon != -97.4 && $want_span != 180 ]] || fail "Pan and zoom did not change the camera"
+# Persistence follows the map settle and debounce timers. A fixed sleep and
+# checking only for "lat" can accept the original file on a busy CI runner.
+# Wait for the changed view at the same precision as the IPC status fields.
+wait_saved_view "$check_dir/state.json" "$want_lat" "$want_lon" "$want_span" \
+  || fail "Changed view did not persist before reopen" "$(cat "$check_dir/state.json")"
 stop
 start "$check_dir/empty.toml" "$check_dir/missing.json" "$check_dir/state.json"
 until_field lat "$want_lat"

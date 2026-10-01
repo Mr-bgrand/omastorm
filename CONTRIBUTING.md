@@ -16,7 +16,7 @@ engine, and GPU as the template asks.
 `Live {site}: …` feed lines, decode and tile errors. Attach the last screenful
 covering the failure, not a single line. If the engine never installed, attach
 `bootstrap.log` from the same directory too. Paths are in the
-[README](README.md#troubleshooting).
+[README](README.md#if-something-is-wrong).
 
 For a feature, use the
 [feature request template](https://github.com/wesleygrimes/omastorm/issues/new?template=feature-request.md): what should change on screen, why it belongs
@@ -75,7 +75,7 @@ rules. [docs/README.md](docs/README.md) indexes internal docs.
 [engine/README.md](engine/README.md) maps the backend.
 
 Use an Omarchy desktop with Quickshell/OpenGL, Python 3, Qt Shader Tools,
-Qt Declarative tools, and socat. `mise setup --install-tools` installs the
+Qt Declarative tools, Node.js, and socat. `mise setup --install-tools` installs the
 mise-managed toolchain and fetches locked dependencies. Desktop packages need
 an explicit `omarchy pkg add`; setup never installs privileged packages.
 Use `--profile engine` or `--profile ui` for a narrower CI environment.
@@ -103,7 +103,10 @@ using the usual controls. The dev panel, runtime socket, cache, config, and
 remembered state are separate from production. The command prints its selected
 binary and uses the committed published pin by default. `mise dev --engine
 candidate` builds source offline and rebuilds/restarts its owned daemon on
-engine changes. QML/JS/manifest saves reload; shader saves compile before reload.
+engine changes. `mise build` and candidate dev builds explicitly use this
+checkout's `target/`, overriding `CARGO_TARGET_DIR` and Cargo's target-dir setting
+to keep redirected build output from leaving the launched candidate stale.
+QML/JS/manifest saves reload; shader saves compile before reload.
 A rescan reloads shell plugins generally. No shell restart is automatic.
 
 The global ownership lock prevents two worktrees replacing one another's dev
@@ -149,6 +152,16 @@ focused checks that cover the change:
 | Shader sampling, camera, rendering | `mise check --gpu --scope rendering` |
 
 Focused checks support iteration. CI enforces the complete applicable PR suite.
+PR CI has lint, source engine tests, published-pin plugin integration and a
+fail-closed required result named `CI`. Documentation-only changes run basic,
+documentation and tooling regressions without Rust. UI-only changes use the
+verified published engine without compiling Rust. Dependencies/build settings,
+fixture extraction, native prerequisites, release/tooling and unknown paths
+also require native x86_64/aarch64 optimized artifact and packaging checks.
+Engine source changes also run native aarch64 tests, so an architecture
+failure appears before an immutable release tag.
+Engine release production is a separate workflow; a manual full run provides
+candidate platform evidence without drafting or publishing a release.
 `mise test` runs unit and CPU rendering math without desktop processes.
 `mise test integration --scope protocol` exercises real socket processes.
 `mise test integration --scope ui --case popover` selects one UI scenario;
@@ -162,10 +175,20 @@ logic without Quickshell; `--scope tooling` runs isolated command/lifecycle case
 `mise check` remains available for complete verification. `mise check --changed`
 selects the union of the branch diff against `origin/main` plus staged,
 unstaged and new files; `--base` changes that comparison. Unknown paths select
-complete applicable checks. GPU verification is explicit with `--gpu`.
- Logs and timings live
-under ignored `target/evidence/`; step durations overlap and cannot be summed for wall
-time. Tests must use owned isolated processes and deterministic fixture inputs.
+complete applicable checks. GPU verification is explicit with `--gpu`;
+`--changed` names it when rendering paths changed.
+QML/JS parsing and native JS lint run with Qt tools. This is a syntax check:
+`mise format` applies rustfmt only and never rewrites QML/JS. Integration exercises
+Quickshell imports, and desktop checks validate Omarchy imports/routing.
+`mise check` also verifies both published pin assets using GitHub; this
+read-only release validation needs network access. Development and integration
+consume prepared dependencies/fixtures offline. Native platform checks for the
+other architecture run in CI. The Cargo helper resolves the installed Rust
+toolchain directly so isolated XDG paths do not trigger mise tool downloads.
+Documentation drift checks run in every CI scope.
+Logs and timings live
+under ignored `target/evidence/`; use the recorded wall time for elapsed verification, rather than summing
+historical overlapping step durations. Tests must use owned isolated processes and deterministic fixture inputs.
 
 A new standalone script or public task needs a distinct operational reason;
 new regressions normally belong in an existing suite. Keep docs synchronized

@@ -10,9 +10,9 @@ import textwrap
 from unittest.mock import patch
 import unittest
 
-spec = importlib.util.spec_from_file_location("changes", Path(__file__).with_name("ci-changes.py"))
-changes = importlib.util.module_from_spec(spec)
-spec.loader.exec_module(changes)
+import sys
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts/tooling"))
+import selection as changes
 
 
 class SelectionTests(unittest.TestCase):
@@ -26,13 +26,14 @@ class SelectionTests(unittest.TestCase):
             (("ui/Panel.qml",), {"ui"}),
             (("engine/src/sweep.rs",), {"engine", "ui"}),
             (("engine/src/protocol.rs", "ui/Engine.qml"), {"engine", "ui"}),
-            (("Cargo.lock",), {"engine", "ui"}),
+            (("Cargo.lock",), {"engine", "ui", "release"}),
             (("data/fixtures/scan.gz", "golden/scan.json"), {"engine", "ui"}),
-            (("engine/release.pin",), {"pin", "ui"}),
+            (("engine/release.pin",), {"pin", "ui", "installer"}),
             (("scripts/fetch-engine.sh",), {"installer", "shell"}),
+            (("scripts/hooks/omastorm",), {"ui", "installer", "shell"}),
             (("run.sh",), {"installer", "shell", "ui"}),
             (("manifest.json",), {"installer", "ui"}),
-            (("scripts/build-engine-release.sh",), {"release", "shell"}),
+            (("scripts/build-engine-release.sh",), {"engine", "ui", "release", "shell"}),
             (("ui/shaders/radar.frag",), {"ui", "rendering"}),
             (("ui/RadarMap.qml",), {"ui", "rendering"}),
             (("ui/RadarWindow.qml",), {"ui", "rendering"}),
@@ -87,7 +88,7 @@ class ContributorMetadataTests(unittest.TestCase):
             previous = os.getcwd()
             try:
                 os.chdir(scratch)
-                with patch("sys.argv", ["ci-changes.py"]), \
+                with patch("sys.argv", ["selection.py"]), \
                      patch.object(changes, "changed_paths", return_value=("base", [".all-contributorsrc", "README.md"])), \
                      patch.object(changes.subprocess, "run"), \
                      patch.dict(os.environ, GITHUB_STEP_SUMMARY=""), patch("builtins.print"):
@@ -107,37 +108,29 @@ class ContributorMetadataTests(unittest.TestCase):
 
 class RequiredGateTests(unittest.TestCase):
     def test_selected_jobs_cannot_fail_or_be_skipped(self):
-        workflow = Path(__file__).resolve().parent.parent / ".github/workflows/engine.yml"
-        # Exercise the exact final-gate program without needing a GitHub runner.
-        content = workflow.read_text().split("  required:\n", 1)[1]
-        program = textwrap.dedent(content.split("python3 - <<'PY'\n", 1)[1].split("          PY", 1)[0])
-        for paths in [("README.md",), (".all-contributorsrc", "README.md"), ("ui/Panel.qml",), ("engine/src/main.rs",),
-                      ("scripts/fetch-engine.sh",), ("engine/release.pin",),
-                      ("scripts/build-engine-release.sh",), ("mise.toml",)]:
-            scope = {k: str(v).lower() for k, v in changes.classify(paths).items()}
-            enabled = {
-                "changes": True,
-                "shell": scope["shell"] == "true",
-                "pin": scope["pin"] == "true",
-                "native-x86": scope["engine"] == "true" or scope["release"] == "true",
-                "native-arm": scope["engine"] == "true" or scope["release"] == "true",
-                "ui": scope["ui"] == "true" or scope["installer"] == "true",
-                "bundle": scope["engine"] == "true" or scope["release"] == "true",
-            }
+        for paths in [("README.md",), ("ui/Panel.qml",), ("engine/src/main.rs",),
+                      ("run.sh",), ("scripts/hooks/omastorm",), ("engine/release.pin",), ("Cargo.lock",), ("unknown",)]:
+            scope = changes.classify(paths)
+            enabled = changes.required_jobs(scope)
             jobs = {name: {"result": "success" if run else "skipped"} for name, run in enabled.items()}
-            jobs["changes"]["outputs"] = scope
-            with self.subTest(paths=paths), patch.dict(os.environ, RESULTS=json.dumps(jobs)), patch("builtins.print"):
-                exec(program, {})
+            jobs["changes"]["outputs"] = {k: str(v).lower() for k,v in scope.items()}
+            changes.gate(jobs)
             for name, run in enabled.items():
-                if not run:
-                    continue
                 for status in ("failure", "cancelled", "skipped"):
-                    bad = {k: dict(v) for k, v in jobs.items()}
+                    if not run and status == "skipped": continue
+                    bad = {k:dict(v) for k,v in jobs.items()}
                     bad[name]["result"] = status
-                    with self.subTest(paths=paths, job=name, status=status), patch.dict(os.environ, RESULTS=json.dumps(bad)):
-                        with self.assertRaises(SystemExit):
-                            exec(program, {})
+                    with self.subTest(paths=paths,job=name,status=status),self.assertRaises(RuntimeError):
+                        changes.gate(bad)
+            jobs["changes"]["outputs"] = {}
+            with self.assertRaises(RuntimeError): changes.gate(jobs)
+            with self.assertRaises(RuntimeError): changes.gate({})
+
+    def test_engine_changes_require_aarch64_before_a_tag(self):
+        enabled = changes.required_jobs(changes.classify(("engine/src/main.rs",)))
+        self.assertTrue(enabled["native-arm"])
+        self.assertFalse(enabled["native-x86"] or enabled["bundle"])
+        self.assertFalse(changes.required_jobs(changes.classify(("ui/Panel.qml",)))["native-arm"])
 
 
-if __name__ == "__main__":
-    unittest.main()
+if __name__ == "__main__": unittest.main()
