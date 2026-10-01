@@ -1,7 +1,4 @@
-# Repo prerequisites and the jobs. `mise install` gets the tools; `mise tasks`
-# lists the jobs and each runs as `mise <job>`. Quickshell, Qt Shader Tools,
-# socat, ImageMagick, and ffmpeg are desktop packages outside mise; `mise setup`
-# checks for them.
+# Eight public commands. Exact arguments: mise <command> --help.
 
 [tools]
 rust = { version = "1.98", profile = "minimal", components = "rustfmt,clippy" }
@@ -10,142 +7,35 @@ jq = "1.8"
 ripgrep = "15"
 gh = "2"
 
+
 [tasks.setup]
-description = "Desktop package check, verified fixtures, cargo fetch, debug build"
-run = "bash scripts/dev-bootstrap.sh"
+description = "Fetch locked dependencies and verified fixtures/pin"
+run = "python3 scripts/tooling/cli.py setup"
 
-[tasks.refresh-fixtures]
-description = "Download upstream fixtures and rewrite data/fixtures plus SHA256SUMS"
-run = "bash scripts/refresh-fixtures.sh"
-
-[tasks.build]
-description = "Debug engine"
-run = "cargo build --offline --locked"
-
-[tasks.format]
-description = "rustfmt, writing"
-run = "cargo fmt"
-
-[tasks.lint]
-description = "rustfmt check, clippy with warnings denied, shellcheck"
-run = [
-  "cargo fmt --check",
-  "cargo clippy --offline --locked --all-targets -- -D warnings",
-  "shellcheck -x run.sh scripts/*.sh",
-]
-
-[tasks.start]
-description = "Launch the window against the shared debug daemon (needs GPU Quickshell)"
-run = "OMASTORM_RESCAN_PLUGIN=1 bash run.sh"
-
-[tasks.restart]
-description = "Stop the shared debug daemon, then launch this checkout's window"
-run = "bash -c 'test -x target/debug/omastorm-engine && target/debug/omastorm-engine stop || true; exec env OMASTORM_RESCAN_PLUGIN=1 bash run.sh'"
-
-[tasks.onboard]
-description = "Launch this checkout with no weather or remembered view (location picker)"
-run = "mkdir -p target && : > target/onboard-state.json && OMASTORM_LOCATION=/dev/null OMASTORM_STATE=$PWD/target/onboard-state.json OMASTORM_RESCAN_PLUGIN=1 bash run.sh"
-
-[tasks.plugin-link]
-description = "Point the Omarchy bar plugin at this checkout and enable it"
-run = "bash scripts/link-plugin.sh"
-
-[tasks.plugin-unlink]
-description = "Restore the installed Omarchy plugin clone"
-run = "bash scripts/link-plugin.sh --unlink"
-
-[tasks.stop]
-description = "End the shared debug daemon"
-run = "target/debug/omastorm-engine stop"
+[tasks.dev]
+description = "Temporary isolated bar plugin; reload saves and clean exit"
+run = "python3 scripts/tooling/cli.py dev"
 
 [tasks.test]
-description = "Rust unit and socket tests"
-run = "cargo test --offline --locked"
+description = "Fast unit tests; integration supports focused selection"
+run = "python3 scripts/tooling/cli.py test"
+
+[tasks.lint]
+description = "Formatting and language checks"
+run = "python3 scripts/tooling/cli.py lint"
+
+[tasks.format]
+description = "Apply supported language formatters"
+run = "python3 scripts/tooling/cli.py format"
+
+[tasks.build]
+description = "Offline incremental engine and shaders"
+run = "python3 scripts/tooling/cli.py build"
 
 [tasks.check]
-description = "Complete PR readiness suite against scratch daemons (--gpu adds rendering)"
-run = "bash scripts/check.sh"
-
-# Focused checks for iteration; the complete applicable suite gates readiness.
-[tasks.check-engine]
-description = "Engine formatting, Clippy, and unit tests"
-run = "bash scripts/check.sh engine"
-
-[tasks.check-protocol]
-description = "Socket and protocol integration tests"
-run = "bash scripts/check.sh protocol"
-
-[tasks.check-ui]
-description = "UI, launcher, installer, and candidate binary checks"
-run = "bash scripts/check.sh ui"
-
-[tasks.check-ui-pinned]
-description = "UI-only review against the verified published engine, in a disposable tree (no Rust build)"
-run = """
-set -eu
-mkdir -p target
-review_dir=$(mktemp -d "$PWD/target/review-ui.XXXXXX")
-printf 'Disposable UI review tree and logs: %s\n' "$review_dir"
-bash scripts/prepare-pinned-ui-check.sh "$review_dir"
-cd "$review_dir"
-bash scripts/check.sh ui --prebuilt
-"""
-
-[tasks.check-installer]
-description = "Installer, plugin linking, launcher, and candidate binary checks"
-run = "bash scripts/check.sh installer"
-
-[tasks.check-rendering]
-description = "Ignored GPU rendering tests (desktop OpenGL required)"
-run = "bash scripts/check.sh rendering"
-
-[tasks.capture-review]
-description = "Archived radar captures at multiple window sizes and a theme-change check; images in review/"
-run = "bash scripts/capture-review.sh"
-
-[tasks.build-shaders]
-description = "Compile radar, tile, and grid shaders into the committed Qt .qsb packages"
-run = "bash scripts/build-shader.sh"
-
-[tasks.bench-engine]
-description = "Recorded-input engine baseline; no live provider requests"
-run = "python3 scripts/bench-engine.py"
-
-[tasks.engine-bump]
-description = "Bump engine/Cargo.toml and Cargo.lock to the next patch (or -- <version>); publishes nothing"
-run = "bash scripts/bump-engine-version.sh"
-
-[tasks.engine-tag]
-description = "Push annotated engine-<version> from clean main so CI drafts the GitHub Release"
-run = "bash scripts/tag-engine-release.sh"
-
-[tasks.engine-verify]
-description = "Download published engine assets and require their sha256 to match the candidate pin; writes nothing"
-run = "bash scripts/pin-engine-release.sh --verify-only"
-
-[tasks.engine-pin]
-description = "Verify published engine assets, then write engine/release.pin (does not commit)"
-run = "bash scripts/pin-engine-release.sh"
-
-[tasks.build-release]
-description = "Optimized, stripped engine and SHA256SUMS under target/dist/ as a release candidate; publishes nothing (--write-pin updates engine/release.pin)"
-run = "bash scripts/build-engine-release.sh"
+description = "Complete applicable verification; explicit GPU option"
+run = "python3 scripts/tooling/cli.py check"
 
 [tasks.release]
-description = "Local fallback: publish engine-<version> from a laptop (candidate, draft, publish, verify, write pin; --dry-run, --yes)"
-run = "bash scripts/release-engine.sh"
-
-[tasks.agents-link]
-description = "Symlink the sibling wesleygrimes/agents overlay into this gitignored tree"
-run = "bash ../agents/scripts/link.sh"
-
-[tasks.agents-unlink]
-description = "Remove the wesleygrimes/agents overlay from this checkout"
-run = "bash ../agents/scripts/unlink.sh"
-
-[tasks.clean]
-description = "Remove Cargo output and scratch runtime dirs"
-run = [
-  "cargo clean",
-  "rm -rf /tmp/omastorm-check.* /tmp/omastorm-theme.*",
-]
+description = "Engine/plugin stages; no stage shows help without mutation"
+run = "python3 scripts/tooling/cli.py release"

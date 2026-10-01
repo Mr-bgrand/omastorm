@@ -763,6 +763,7 @@ Item {
     }
     ShaderEffect {
         id: radarEffect
+        objectName: "radar-layer"
         visible: map.radarReady && !map.renderMosaic
         // The radar alone, not the basemap: .6 under UNAVAILABLE.
         opacity: map.sweepOpacity

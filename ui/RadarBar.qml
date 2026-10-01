@@ -1,14 +1,28 @@
 import QtQuick
 import Quickshell
+import Quickshell.Io
 import qs.Ui
 import qs.Commons
 
 BarWidget {
     id: root
-    moduleName: "com.omastorm.radar"
+    moduleName: Runtime.pluginId
     property var session: PluginSession
     property bool opened: false
     property bool popoutSwitchClosing: false
+    // Dev-only acknowledgement: the owner waits for the actual loaded widget,
+    // rather than treating asynchronous registry discovery as successful QML.
+    property var developmentStatus: Runtime.development ? statusFactory.createObject(root) : null
+    property Component statusFactory: Component {
+        IpcHandler {
+            target: "omastorm-dev"
+            function status(): string {
+                return JSON.stringify({revision: Runtime.instance.revision, pluginId: root.moduleName,
+                    runtime: root.session.engine.runtime, connected: !!root.session.engine.state,
+                    window: root.session.windowOpen, popover: root.opened});
+            }
+        }
+    }
     readonly property var state: session.engine.state
     readonly property bool live: state && state.mode === "live" && state.connection.status === "ok"
     readonly property bool down: !state || state.connection.status === "offline" || state.connection.status === "unavailable"
@@ -19,7 +33,7 @@ BarWidget {
     function close() { opened = false; }
     function closeForPopoutSwitch() { popoutSwitchClosing = true; close(); }
     function expand() {
-        Quickshell.execDetached(["omarchy", "shell", "shell", session.windowOpen ? "summon" : "toggle", "com.omastorm.radar", "{}"]);
+        Quickshell.execDetached(["omarchy", "shell", "shell", session.windowOpen ? "summon" : "toggle", Runtime.pluginId, "{}"]);
         close();
     }
     implicitWidth: button.implicitWidth
@@ -34,6 +48,7 @@ BarWidget {
         active: root.opened
         iconComponent: Component {
             Item {
+                Text { anchors.centerIn: parent; text: "D"; visible: Runtime.development; color: button.foreground; font.pixelSize: 9; z: 1 }
                 RadarMark { anchors.centerIn: parent; ink: button.foreground; opacity: root.live ? 1 : .6 }
                 Rectangle { anchors.right: parent.right; anchors.bottom: parent.bottom; width: 5; height: 5; color: Color.urgent; visible: root.down }
                 // An update waiting on a shell restart; the popover names it.

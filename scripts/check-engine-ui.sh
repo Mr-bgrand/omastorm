@@ -3,7 +3,7 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 check_dir="$PWD/target/check-engine-ui"
 mkdir -p "$check_dir"
-cp ui/Engine.qml "$check_dir/Engine.qml"
+cp ui/*.qml ui/*.js ui/qmldir "$check_dir/"
 cat > "$check_dir/shell.qml" <<'QML'
 import QtQuick
 import Quickshell

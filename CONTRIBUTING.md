@@ -74,54 +74,45 @@ rules. [docs/README.md](docs/README.md) indexes internal docs.
 [docs/protocol.md](docs/protocol.md) defines the engine/client contract;
 [engine/README.md](engine/README.md) maps the backend.
 
-Use an Omarchy desktop with Quickshell and OpenGL, `qt6-shadertools`, and
-`socat`. `unzip` is only needed to refresh vendored fixtures. Install [mise](https://mise.jdx.dev), then from a checkout:
+Use an Omarchy desktop with Quickshell/OpenGL, Python 3, Qt Shader Tools,
+Qt Declarative tools, and socat. `mise setup --install-tools` installs the
+mise-managed toolchain and fetches locked dependencies. Desktop packages need
+an explicit `omarchy pkg add`; setup never installs privileged packages.
+Use `--profile engine` or `--profile ui` for a narrower CI environment.
+ImageMagick and ffmpeg are optional capture tools.
 
 ```sh
-mise install
-mise setup
-mise start
+mise setup --install-tools
+mise build
+mise dev
 ```
 
-The tree: `engine/` the Rust daemon, `ui/` the Quickshell client, `scripts/`
-bootstrap and checks, `docs/` internal docs ([docs/README.md](docs/README.md)),
-`data/` fixture provenance, `golden/` the decoder answer key, `site/`
-omastorm.com.
+Use `mise tasks` to discover the public commands. For routine verification,
+invoke the named tasks and report the task and result when handing off work.
+The Python and shell scripts underneath are implementation helpers; `mise exec`
+selects a toolchain without selecting a verification workflow.
 
-Setup checks desktop dependencies, extracts verified fixtures, and builds the
-engine. Rust comes from mise; use `mise exec -- cargo …` for Cargo commands.
-[mise.toml](mise.toml) is the task and toolchain reference (`mise tasks` lists
-jobs). For an offline archived scan:
+The eight public tasks are setup, dev, test, lint, format, build, check, and
+release. `mise <command> --help` generates exact argument help. Setup prepares
+verified fixtures and a checksum-verified published engine under ignored
+`target/pinned-data/`; subsequent development and tests run offline.
 
-```sh
-OMASTORM_ARCHIVE=data/raw/KTLX20130520_201643_V06.gz mise start
-```
+`mise dev` installs `com.omastorm.radar-dev` beside the production plugin,
+marked with a D and a dev name in the left bar. Open its popover and expand
+using the usual controls. The dev panel, runtime socket, cache, config, and
+remembered state are separate from production. The command prints its selected
+binary and uses the committed published pin by default. `mise dev --engine
+candidate` builds source offline and rebuilds/restarts its owned daemon on
+engine changes. QML/JS/manifest saves reload; shader saves compile before reload.
+A rescan reloads shell plugins generally. No shell restart is automatic.
 
-The daemon is shared and outlives windows. Launch replaces a stale build and
-open clients reconnect. Use `mise stop` to end it, never `kill`. Close only
-Quickshell instances you launched; a windowless process left after closing is
-a leak to investigate.
-
-`mise start` loads this checkout's `ui/` in a window. The bar still uses the
-installed plugin under `~/.config/omarchy/plugins/com.omastorm.radar` unless
-you point it here:
-
-```sh
-mise plugin-link
-```
-
-That replaces the install directory with a symlink to this checkout (the
-previous clone is kept beside it), restarts the Omarchy shell, and
-enables the bar widget.
-After that, `mise start`, `mise restart`, and `mise onboard` also restart the
-shell so the popover matches this tree (a symlink skips the plugin file
-watcher, and `rescanPlugins` keeps the old QML). `mise onboard`'s empty weather
-and state files apply only to the window; the popover keeps its usual place
-files. `mise plugin-unlink` restores the clone. A tty launch prints the qml path,
-live vs archive, whether the bar is linked, and which config/state/place
-files apply. `mise restart` stops the daemon first so a check or capture
-leftover is not reused. `mise onboard` starts the window with no weather file
-and no remembered view, so the location picker shows.
+The global ownership lock prevents two worktrees replacing one another's dev
+plugin. Normal exit, Ctrl-C, TERM, HUP, and handled failures remove owned
+resources and layout entries while preserving unrelated configuration.
+SIGKILL/power loss cannot run cleanup; the next session detects owned stale
+artifacts. Cleanup errors are reported. Logs remain under `target/dev/`.
+The development command modifies your actual bar: agent-driven installation
+needs your permission before running it on the desktop.
 
 ## What not to change
 
@@ -152,79 +143,29 @@ focused checks that cover the change:
 
 | Change | Command |
 | --- | --- |
-| Engine logic, decoding, storage | `mise check-engine` |
-| Wire output, commands, daemon lifecycle | `mise check-protocol` |
-| QML, launcher, installer, UI integration | `mise check-ui` |
-| UI-only review against the published engine | `mise check-ui-pinned` |
-| Installer or launcher changes | `mise check-installer` |
-| Shader sampling, camera, rendering | `mise check-rendering` |
+| Engine logic, decoding, storage | `mise check --scope engine` |
+| Wire output, commands, daemon lifecycle | `mise test integration --scope protocol` |
+| QML, launcher, installer, UI integration | `mise check --scope ui` |
+| Shader sampling, camera, rendering | `mise check --gpu --scope rendering` |
 
-Use `mise tasks` to discover the supported commands; the scripts underneath are
-implementation helpers. For routine verification, invoke the named tasks rather
-than individual scripts or `mise exec -- cargo ...`: `mise exec` selects the
-toolchain but does not select the repository's verification workflow. Use
-`mise check-engine` for engine formatting, lint, and unit tests, `mise
-check-protocol` for socket/protocol tests, or `mise test` for all Rust unit and
-socket tests. Report the task invoked and its result when handing off work.
+Focused checks support iteration. CI enforces the complete applicable PR suite.
+`mise test` runs unit and CPU rendering math without desktop processes.
+`mise test integration --scope protocol` exercises real socket processes.
+`mise check --scope engine` includes formatting, Clippy and engine unit checks.
+`mise check` remains available for complete verification. Logs and timings live
+under ignored `target/`; step durations overlap and cannot be summed for wall
+time. Tests must use owned isolated processes and deterministic fixture inputs.
 
-`mise check-ui-pinned` uses the same preparation and
-prebuilt checks as UI CI: it verifies the published engine pin, copies this
-checkout's tracked files and unignored new files into a fresh tree under
-`target/review-ui.*`, and runs without compiling Rust. The tree remains for
-inspection; its check logs are under `target/check/logs/` inside that tree.
-This checks UI compatibility with the published engine, not engine source changes.
-For reviewing another branch, run the task in a separate checkout of the PR;
-it copies the checkout where it is invoked, not a remote PR automatically.
-The installed plugin and its running daemon can stay open: checks use their own
-runtime directories and sockets. If an agent sandbox blocks local sockets,
-rerun the same task with the required execution permission.
-
-Focused checks support iteration and commits; they do not establish PR readiness.
-Run `mise check` before marking a PR ready, plus the rendering checks and captures
-below when applicable. The complete applicable suite gates readiness.
-
-Checks use scratch daemons and leave the shared daemon alone. Cargo builds first;
-Rust tests can overlap with UI work, but UI groups run sequentially to avoid
-competing Quickshell/OpenGL harnesses. Concurrent check runners in the same
-checkout are refused before touching scratch files. Scratch and logs live under
-`target/check/`; runtime files are removed on exit, logs remain until the next
-run. `target/check/logs/timings.tsv` records step durations and total wall time.
-Step times overlap and should not be summed to infer wall time. The checks read
-`target/debug/`, so leave `CARGO_TARGET_DIR` unset. CI runs on pull requests and pushes to `main` (avoiding duplicate branch/PR
-runs), plus engine tags and manual runs. It selects jobs from the complete change
-diff. Engine changes run native tests
-and release builds on both Linux architectures, with formatting and Clippy once,
-plus UI integration. UI-only changes skip Rust builds and tests and run against
-the verified published engine pin. When engine and UI protocol versions match,
-engine changes run UI checks against the source-built candidate; differing
-versions keep UI checks on the pin and validate the candidate separately.
-Version equality declares compatibility; UI integration checks test behavior.
-Playback UI tests replay supplied frames and record emitted controls; they do
-not assert frame order or loop policy. Those regressions live in the engine's
-Rust tests, so an older compatible pin does not need unreleased engine behavior.
-
-Installer-only changes run ShellCheck and focused installer/launcher checks.
-Pin changes verify published checksums for both architectures and run UI checks.
-Release-tool changes exercise tooling regressions, native builds, binary smoke
-tests, and packaging without Rust lint/unit tests. Docs, branding, and
-site-only changes get whitespace and changed-JSON validation. Mixed changes run
-the union of their groups. CI/toolchain changes and unknown paths run everything,
-as do engine tags and manual workflow runs. Shell changes also run ShellCheck.
-The selected groups appear in the workflow summary.
-
-UI CI runs in an Arch container with Qt Quick's OpenGL RHI and Mesa rendering;
-it reuses verified or source-built binaries without compiling Rust. This covers
-headless integration; desktop GPU rendering tests and review captures remain
-required locally for shader, sampling, or camera changes. The final `CI` job
-requires every selected job to pass, including jobs that fail to start. Configure
-branch protection to require that single check. Report required checks that could
-not run explicitly.
+A new standalone script or public task needs a distinct operational reason;
+new regressions normally belong in an existing suite. Keep docs synchronized
+with behavior in the same commit. UI/pin changes must pass with the committed
+published engine; candidate tests add coverage when compatible.
 
 For shader, sampling, or camera changes, also run `mise check --gpu` and
-`mise capture-review`, inspect the images in `review/`, and include
+`bash scripts/capture-review.sh`, inspect the images in `review/`, and include
 captures with the review. The rendering test replays the shader's sampling
 rule in Rust; update both when changing that rule. Rebuild changed radar,
-tile, or grid shaders with `mise build-shaders` and commit their `.qsb` files.
+tile, or grid shaders with `bash scripts/build-shader.sh` and commit their `.qsb` files.
 The GPU checks need a desktop OpenGL context; software Qt Quick is unsupported.
 If the environment cannot run a required check, report that explicitly.
 

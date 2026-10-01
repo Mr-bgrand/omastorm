@@ -6,6 +6,8 @@ Approved issue:
 ## Change
 
 Explain the behavior change and how it meets the approved issue's scope.
+New scripts/public tasks need a distinct operational reason; new regressions
+normally belong in an existing suite.
 
 ## Verification
 

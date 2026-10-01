@@ -584,27 +584,16 @@ impl Drop for Engine {
     }
 }
 
-/// `ui/RadarMap.qml` with absolute shader paths and its shader item exposed
-/// for the grab; nothing else changes.
+/// Compose the unchanged native UI module, including singleton dependencies.
 fn install_harness(dir: &Path) {
-    let component = fs::read_to_string(format!("{ROOT}/ui/RadarMap.qml")).unwrap();
-    let shader = |name: &str| json!(format!("{ROOT}/ui/shaders/{name}.frag.qsb")).to_string();
-    assert!(component.contains("\"shaders/radar.frag.qsb\"") && component.contains("id: map\n"));
-    assert!(component.contains("\"shaders/tile.frag.qsb\""));
-    let component = component
-        .replace("\"shaders/radar.frag.qsb\"", &shader("radar"))
-        .replace("\"shaders/tile.frag.qsb\"", &shader("tile"))
-        .replace("\"shaders/grid.frag.qsb\"", &shader("grid"))
-        .replacen(
-            "id: map\n",
-            "id: map\n    property alias shaderItem: radarEffect\n",
-            1,
-        );
     fs::create_dir_all(dir).unwrap();
-    fs::write(dir.join("RadarMap.qml"), component).unwrap();
-    fs::copy(format!("{ROOT}/ui/Metar.js"), dir.join("Metar.js")).unwrap();
-    // The pan pair drives the real socket client for tiles; unchanged.
-    fs::copy(format!("{ROOT}/ui/Engine.qml"), dir.join("Engine.qml")).unwrap();
+    assert!(
+        Command::new("cp")
+            .args(["-a", &format!("{ROOT}/ui/."), dir.to_str().unwrap()])
+            .status()
+            .unwrap()
+            .success()
+    );
 }
 /// What a capture shows: the camera, the frame, and the two texture files.
 struct Scene<'a> {
@@ -637,6 +626,7 @@ ShellRoot {{
         color: "#000000"
         RadarMap {{
             id: map
+            readonly property var shaderItem: children.find(item => item.objectName === "radar-layer")
             anchors.fill: parent
             scan: ({frame})
             texture: {texture}
@@ -1012,6 +1002,7 @@ ShellRoot {{
         color: "#000000"
         RadarMap {{
             id: map
+            readonly property var shaderItem: children.find(item => item.objectName === "radar-layer")
             anchors.fill: parent
             scan: engine.state ? engine.state.frame : null
             texture: engine.texture
