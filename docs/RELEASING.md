@@ -65,9 +65,12 @@ source-built candidates.
 2. After merge, run `mise release plugin tag` from clean freshly verified
    `main`. It pushes only `v<version>` and creates a draft titled
    `Omastorm <version>`. Existing tags/releases are refused.
-3. Add a [summary](#release-notes) above the generated notes and any release
-   [media](media/README.md), then publish the draft in GitHub.
-   Keep README media URLs pointed at releases containing those assets.
+3. Check that each PR in the draft sits under the right heading. If one is
+   misfiled, fix its label per [CONTRIBUTING](../CONTRIBUTING.md#labels) and
+   regenerate the notes (Generate release notes in the draft editor).
+4. Add a [summary](#release-notes) above the generated notes and any release
+   [media](media/README.md), then publish the draft in GitHub. Keep README
+   media URLs pointed at releases containing those assets.
 
 ## Release notes
 
