@@ -48,7 +48,6 @@ BarWidget {
         active: root.opened
         iconComponent: Component {
             Item {
-                Text { anchors.centerIn: parent; text: "D"; visible: Runtime.development; color: button.foreground; font.pixelSize: 9; z: 1 }
                 RadarMark { anchors.centerIn: parent; ink: button.foreground; opacity: root.live ? 1 : .6 }
                 Rectangle { anchors.right: parent.right; anchors.bottom: parent.bottom; width: 5; height: 5; color: Color.urgent; visible: root.down }
                 // An update waiting on a shell restart; the popover names it.

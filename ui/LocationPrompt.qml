@@ -22,6 +22,7 @@ ColumnLayout {
         implicitHeight: 30
         implicitWidth: label.implicitWidth + 20
         contentItem: Text {
+            textFormat: Text.PlainText
             id: label
             text: parent.text
             color: prompt.theme.foreground

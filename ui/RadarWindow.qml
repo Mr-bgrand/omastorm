@@ -456,6 +456,7 @@ Item {
         property bool compact: width < 560
 
         component LabelText: Text {
+            textFormat: Text.PlainText
             color: app.theme.foreground
             font.family: app.theme.font
             font.pixelSize: app.theme.baseSize
@@ -498,6 +499,7 @@ Item {
                 "radar": "󰐷"
             })
             Text {
+                textFormat: Text.PlainText
                 anchors.centerIn: parent
                 text: glyphRoot.icons[glyphRoot.glyph] || ""
                 color: glyphRoot.ink
