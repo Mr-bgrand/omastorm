@@ -161,6 +161,7 @@ class ReleaseTests(unittest.TestCase):
             release.tag('plugin')
         draft=calls[-1]
         self.assertIn('--draft',draft)
+        self.assertEqual(draft[draft.index('--title')+1],'Omastorm 1.2.3')
         self.assertIn('Changes since v1.2.2',draft)
         self.assertNotIn('engine-1.2.2',draft)
         self.assertFalse(any('--clobber' in call or '--latest' in call for call in calls))
