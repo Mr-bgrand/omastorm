@@ -17,6 +17,7 @@ Item {
     readonly property var columns: KeyMap.sheet(bindings)
     readonly property string closeKeys: (bindings.close || []).map(KeyMap.pretty).join(" or ")
     component Word: Text {
+        textFormat: Text.PlainText
         color: sheet.theme.foreground
         font.family: sheet.theme.font
         font.pixelSize: 12

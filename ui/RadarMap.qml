@@ -909,6 +909,7 @@ Item {
                     && overlayCamera.y+y >= 26 && overlayCamera.y+y+height <= map.height-30
                 color: Qt.alpha(map.theme.background, .88)
                 Text {
+                    textFormat: Text.PlainText
                     x: 3; anchors.verticalCenter: parent.verticalCenter
                     text: modelData.name; color: Qt.alpha(map.theme.foreground, .75)
                     font.family: map.theme.font; font.pixelSize: map.labelSize
@@ -943,6 +944,7 @@ Item {
                          : ink ? "transparent"
                          : Qt.alpha(map.theme.background, .88)
                     Text {
+                        textFormat: Text.PlainText
                         x: 3; anchors.verticalCenter: parent.verticalCenter
                         text: modelData.name
                         color: parent.block ? "#ffffff"
@@ -968,6 +970,7 @@ Item {
             visible: map.siteId !== "" || (map.mosaic && map.sourceId !== "")
             border.width: map.locked ? 1 : 0; border.color: map.theme.accent
             Text {
+                textFormat: Text.PlainText
                 id: siteTag
                 x: 3; anchors.verticalCenter: parent.verticalCenter
                 text: map.siteId || (map.mosaic ? map.sourceId : "")

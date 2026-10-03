@@ -116,6 +116,7 @@ FocusScope {
     Keys.onReturnPressed: expandRequested()
     Keys.onEnterPressed: expandRequested()
     component Label: Text {
+        textFormat: Text.PlainText
         color: card.theme.foreground
         font.family: card.theme.font
         font.pixelSize: 12

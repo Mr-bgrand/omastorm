@@ -36,6 +36,7 @@ Item {
     readonly property string coordError: coordEntry && coordEntry.error ? coordEntry.error : ""
     readonly property bool metric: Qt.locale().measurementSystem === Locale.MetricSystem
     component Word: Text {
+        textFormat: Text.PlainText
         color: picker.theme.foreground
         font.family: picker.theme.font
         font.pixelSize: 12
