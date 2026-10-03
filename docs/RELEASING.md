@@ -76,7 +76,9 @@ subtitle: `Omastorm 0.1.17` and `Engine 0.1.11`. The tooling sets them.
 
 Write notes for people running the plugin, not from the PR list:
 
-- A one-line summary, then one section per user-visible change.
+- An opening summary. Fix releases use one line. Feature releases may use a
+  few sentences on the highlights; keep it to that paragraph.
+- One section per user-visible change, in short bullets.
 - A `## Security` section first when the release fixes one; state the impact
   plainly and credit the reporter.
 - Credit contributors by handle and link their PRs.
