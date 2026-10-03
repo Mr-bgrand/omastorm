@@ -10,6 +10,11 @@ import "Metar.js" as Metar
 
 Item {
     id: app
+    // Component composition/inspection uses the existing connection and visual
+    // items directly; integration harnesses never rewrite component source.
+    property alias connection: engine
+    property alias mapItem: map
+    property alias surfaceItem: surface
     // A standalone launcher owns its process; a plugin never does.
     property var session: null
     property var shell: null
@@ -31,7 +36,7 @@ Item {
     }
     function dismiss() {
         if (!session) Qt.quit();
-        else if (shell) shell.hide("com.omastorm.radar");
+        else if (shell) shell.hide(Runtime.pluginId);
         else close();
     }
     readonly property var state: engine.state

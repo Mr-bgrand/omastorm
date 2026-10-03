@@ -63,7 +63,8 @@ ShellRoot {
                 if (index < 0) { next(); return; }
                 ticks++;
                 check(!engine.rejection && !engine.error && !map.error, engine.rejection || engine.error || map.error);
-                if (ticks < 4) return;
+                if (map.width !== views[index].width || map.height !== views[index].height) return;
+                if (!map.request || JSON.stringify(map.request) !== JSON.stringify(map.tileRect(map.tileZoom))) return;
                 check(map.coverageSites.length === 1 && map.coverageSites[0].id === map.siteId,
                     "Inactive radar coverage appeared at network zoom");
                 check(map.width === views[index].width && map.height === views[index].height, "Capture size not applied");

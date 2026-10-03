@@ -10,7 +10,7 @@ import "Location.js" as Location
 // is not read unless OMASTORM_STATE names one.
 QtObject {
     id: root
-    readonly property string path: Quickshell.env("OMASTORM_STATE")
+    readonly property string path: Runtime.state || Quickshell.env("OMASTORM_STATE")
         || (Quickshell.env("OMASTORM_CONFIG") ? "" : (Quickshell.env("XDG_STATE_HOME") || Quickshell.env("HOME") + "/.local/state") + "/omastorm/state.json")
     property var parsed: Location.parseState("")
     readonly property bool ready: stateRead

@@ -2,19 +2,22 @@
 
 ## Check boundaries
 
-Use `mise check-engine`, `mise check-protocol`, `mise check-ui`, and
-`mise check-rendering` for iteration. `mise check` gates PR readiness;
-rendering changes also require GPU checks and inspected review captures as
-specified in CONTRIBUTING.md. Each focused command builds what it needs and
-runs independently; it does not require an earlier full check.
+Use focused commands from [CONTRIBUTING.md](../CONTRIBUTING.md#verify-and-submit)
+during iteration. Complete applicable verification runs in CI; `mise check`
+remains available locally. Setup prepares dependencies and the verified pin.
+UI-only checks do not build Rust; unit mode starts no daemon or GPU process.
+GPU verification and inspected review captures require the desktop.
 
-Rendering runs after the other groups because it also creates Quickshell windows.
+Each run retains step logs and `timings.json` under ignored `target/evidence/`.
+Reports identify commit/tree state and wall time. Preserve warm and first-build
+measurements separately. Integration runners lock their worktree because some
+scenarios retain fixed case paths. Local fixtures and a refusal proxy prevent
+live-provider fallback.
 
-The runner records step durations and wall time in
-`target/check/logs/timings.tsv`. Copy that file before the next run to compare
-results. Rust tests overlap with UI work in the complete suite, so adding
-step durations overstates elapsed time. Warm and first-build measurements
-must be reported separately.
+## Historical evidence
+
+The following issue #64 results describe the earlier runner and its retained
+local evidence, not the current workflow or a guaranteed timing target.
 
 ### Issue #64
 
@@ -77,10 +80,10 @@ to resolve conflicts created by an extraction.
 
 ```sh
 mise build
-mise bench-engine
+python3 scripts/bench-engine.py
 # Compare optimized code separately, with the same fixture and run parameters:
 mise exec -- cargo build --release --offline --locked
-mise bench-engine -- --binary target/release/omastorm-engine --output target/bench-engine-release
+python3 scripts/bench-engine.py --binary target/release/omastorm-engine --output target/bench-engine-release
 ```
 
 The baseline writes JSON and per-run engine stderr under `target/bench-engine/`.
@@ -152,3 +155,28 @@ separately and profile decoder peak allocations (about 145 MiB in both builds).
 Keep the golden decoder and protocol contract fixed. This small workload
 provides no evidence supporting an engine replacement; collect multi-station
 and realistic mosaic replays before making that decision.
+
+## Tooling cleanup measurements (2026-10-01)
+
+On the isolated main worktree at `42e6909`, first-build engine verification
+spent 36 seconds in Clippy and 39 seconds building test binaries (77 seconds
+wall). Sandbox socket restrictions prevented eight local HTTP-fixture tests;
+with socket permission, the warm engine check passed in 2.13 seconds, including
+121 Rust unit tests in 1.47 seconds. CPU rendering math is a separate fast
+suite. These are measurements for this branch, not engine changes elsewhere.
+
+The migrated runner records commands, exact tree state, per-step times and
+wall time under ignored `target/evidence/`. It uses explicit published-pin
+binaries for UI, without compiling or replacing a candidate. Focused migrated
+transport/handoff/site/IP cases passed in 11.3 seconds; popover/reconnect/map
+views passed in 20.0 seconds. The map views now use a local TileJSON endpoint
+and checked-in recorded vector bytes, not a live map provider. These are
+headless integration timings; desktop reload and GPU fidelity need their
+own checks. Do not sum overlapping historical step times as wall time.
+
+All 15 migrated UI/installer cases passed with the committed published pin in
+50.78 seconds. Consolidated warm units passed in 2.56 seconds (engine 1.66,
+CPU rendering math 0.16, UI logic 0.07, tooling 0.66). The unchanged protocol
+suite passed in 41.19 seconds, preserving its real 20-second wait and retirement
+assertion. These results support focused feedback under five seconds; they
+are not cross-machine pass/fail budgets or proof of desktop GPU fidelity.

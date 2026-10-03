@@ -552,9 +552,10 @@ QtObject {
     // (qrc:/qs-blackhole), so env -C moves it home. Its stderr lands in
     // bootstrap.log beside the socket, and the popover shows the last line
     // while there is no engine.
-    readonly property string root: Quickshell.env("OMASTORM_ROOT") || Quickshell.env("HOME") + "/.config/omarchy/plugins/com.omastorm.radar"
-    readonly property string bootstrapLog: (Quickshell.env("XDG_RUNTIME_DIR") || "/tmp") + "/omastorm/bootstrap.log"
+    readonly property string root: Runtime.root
+    readonly property string bootstrapLog: Runtime.bootstrapLog
     function bootstrap() {
+        if (Runtime.development) return; // mise dev owns this isolated daemon.
         Quickshell.execDetached(["env", "-C", Quickshell.env("HOME"), "OMASTORM_BOOTSTRAP_LOG=" + bootstrapLog, "bash", root + "/run.sh", "--ensure"]);
     }
     property Timer bootstrapRetry: Timer { interval: 20000; repeat: true; running: !session.engine.state; onTriggered: session.bootstrap() }

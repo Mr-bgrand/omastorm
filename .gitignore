@@ -6,7 +6,7 @@ target/
 data/raw/
 
 # Generated captures, check output, and working README media
-# (scripts/check-*.sh, scripts/capture-*.sh). Stills the README links live in
+# (integration cases and capture scripts). Stills the README links live in
 # docs/media/readme/ and are committed; everything else in docs/media/ is local.
 review/
 docs/media/*

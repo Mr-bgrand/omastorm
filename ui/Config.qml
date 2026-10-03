@@ -16,7 +16,7 @@ import "Toml.js" as Toml
 // config leaves it alone unless OMASTORM_LOCATION names a location file too.
 QtObject {
     id: root
-    readonly property string path: Quickshell.env("OMASTORM_CONFIG") || (Quickshell.env("HOME") + "/.config/omastorm/config.toml")
+    readonly property string path: Runtime.config || Quickshell.env("OMASTORM_CONFIG") || (Quickshell.env("HOME") + "/.config/omastorm/config.toml")
     readonly property string locationPath: Quickshell.env("OMASTORM_LOCATION")
         || (Quickshell.env("OMASTORM_CONFIG") ? "" : Quickshell.env("HOME") + "/.local/state/omarchy/settings/weather.json")
     property var values: ({})

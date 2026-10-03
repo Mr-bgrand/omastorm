@@ -4,7 +4,6 @@ on:
   pull_request:
   push:
     branches: ['main']
-    tags: ['engine-*']
   workflow_dispatch:
 
 permissions:
@@ -16,7 +15,7 @@ concurrency:
 
 jobs:
   changes:
-    name: Change scope and basic checks
+    name: Change scope and documentation
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     outputs:
@@ -26,89 +25,118 @@ jobs:
       pin: ${{ steps.scope.outputs.pin }}
       release: ${{ steps.scope.outputs.release }}
       shell: ${{ steps.scope.outputs.shell }}
+      rendering: ${{ steps.scope.outputs.rendering }}
+      tooling: ${{ steps.scope.outputs.tooling }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
           persist-credentials: false
-      - name: Test change selection
-        run: python3 scripts/ci-tests.py
-      - name: Select checks and validate changed files
+      - name: Tooling regressions and documentation drift
+        run: |
+          python3 scripts/tooling/cli.py test --scope tooling
+          python3 scripts/tooling/docs.py
+      - name: Select complete PR diff
         id: scope
         env:
           BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
-          FORCE_FULL: ${{ github.event_name == 'workflow_dispatch' || startsWith(github.ref, 'refs/tags/engine-') }}
+          FORCE_FULL: ${{ github.event_name == 'workflow_dispatch' }}
         run: |
           args=(--base "$BASE_SHA")
           if [[ "$FORCE_FULL" == true ]]; then args+=(--full); fi
-          python3 scripts/ci-changes.py "${args[@]}" >> "$GITHUB_OUTPUT"
+          python3 scripts/tooling/selection.py "${args[@]}" >> "$GITHUB_OUTPUT"
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         if: always()
         with:
           name: ci-change-scope
-          path: target/ci-changes.json
+          path: |
+            target/ci-changes.json
+            target/evidence
           if-no-files-found: ignore
 
-  shell:
-    name: Shell lint
+  lint:
+    name: Lint
     needs: changes
-    if: needs.changes.outputs.shell == 'true'
+    if: needs.changes.outputs.engine == 'true' || needs.changes.outputs.ui == 'true' || needs.changes.outputs.shell == 'true' || needs.changes.outputs.tooling == 'true'
     runs-on: ubuntu-24.04
-    timeout-minutes: 5
+    container: archlinux:base-devel
+    timeout-minutes: 15
+    defaults:
+      run:
+        shell: bash
     steps:
+      - run: pacman -Syu --noconfirm git python nodejs shellcheck qt6-declarative quickshell cmake pkgconf
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
       - uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c # v4.3.0
+        if: needs.changes.outputs.engine == 'true'
         with:
-          install_args: shellcheck
-      - run: mise exec shellcheck -- shellcheck -x run.sh scripts/*.sh scripts/hooks/omastorm
+          install_args: rust
+      - name: Rust format and Clippy
+        if: needs.changes.outputs.engine == 'true'
+        run: |
+          python3 scripts/tooling/cli.py setup --profile engine
+          python3 scripts/tooling/cli.py lint --scope engine
+      - name: Qt syntax and JavaScript lint
+        if: needs.changes.outputs.ui == 'true'
+        run: python3 scripts/tooling/cli.py lint --scope ui
+      - name: Retained shell lint
+        if: needs.changes.outputs.shell == 'true'
+        run: python3 scripts/tooling/cli.py lint --scope tooling
 
-  pin:
-    name: Published pin checksums (both architectures)
+  engine:
+    name: Engine tests
     needs: changes
-    if: needs.changes.outputs.pin == 'true'
+    if: needs.changes.outputs.engine == 'true'
     runs-on: ubuntu-24.04
-    timeout-minutes: 5
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - run: bash scripts/pin-engine-release.sh --verify-only engine/release.pin
+      - run: |
+          sudo apt-get update
+          sudo apt-get install -y cmake pkg-config
+      - uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c # v4.3.0
+        with:
+          install_args: rust
+      - uses: actions/cache@caa296126883cff596d87d8935842f9db880ef25 # v5
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target/debug
+          key: engine-x86-${{ hashFiles('Cargo.lock', 'mise.toml') }}-${{ github.sha }}
+          restore-keys: engine-x86-${{ hashFiles('Cargo.lock', 'mise.toml') }}-
+      - name: Setup and source verification
+        run: |
+          python3 scripts/tooling/cli.py setup --profile engine
+          python3 scripts/tooling/cli.py test --scope engine
+          python3 scripts/tooling/cli.py test integration --scope protocol
+          bash scripts/cargo.sh build --offline --locked
+          python3 scripts/tooling/release.py smoke target/debug/omastorm-engine
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: engine-candidate
+          path: target/debug/omastorm-engine
+          if-no-files-found: error
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        if: always()
+        with:
+          name: engine-check-logs
+          path: target/evidence
+          if-no-files-found: ignore
 
-  native-x86:
-    name: Native x86_64
-    needs: changes
-    if: needs.changes.outputs.engine == 'true' || needs.changes.outputs.release == 'true'
-    uses: ./.github/workflows/native.yml
-    with:
-      arch: x86_64
-      runner: ubuntu-24.04
-      engine_checks: ${{ needs.changes.outputs.engine == 'true' }}
-      release_checks: ${{ needs.changes.outputs.release == 'true' }}
-
-  native-arm:
-    name: Native aarch64
-    needs: changes
-    if: needs.changes.outputs.engine == 'true' || needs.changes.outputs.release == 'true'
-    uses: ./.github/workflows/native.yml
-    with:
-      arch: aarch64
-      runner: ubuntu-24.04-arm
-      engine_checks: ${{ needs.changes.outputs.engine == 'true' }}
-      release_checks: ${{ needs.changes.outputs.release == 'true' }}
-
-  ui:
-    name: UI and installer integration
-    needs: [changes, native-x86]
+  plugin:
+    name: Plugin integration
+    needs: [changes, engine]
     if: >-
       always() && !cancelled() && needs.changes.result == 'success' &&
-      (needs.changes.outputs.ui == 'true' || needs.changes.outputs.installer == 'true') &&
-      (needs.native-x86.result == 'success' || needs.native-x86.result == 'skipped')
+      (needs.changes.outputs.ui == 'true' || needs.changes.outputs.installer == 'true' || needs.changes.outputs.pin == 'true') &&
+      (needs.engine.result == 'success' || needs.engine.result == 'skipped')
     runs-on: ubuntu-24.04
     timeout-minutes: 15
-    # Published engines target Arch's libc; Qt Quick uses the OpenGL RHI,
-    # with Mesa for headless integration. Desktop GPU fidelity stays local.
     container: archlinux:base-devel
     defaults:
       run:
@@ -119,67 +147,73 @@ jobs:
       QT_QUICK_BACKEND: rhi
       QSG_RHI_BACKEND: opengl
     steps:
-      - name: UI prerequisites (no Rust toolchain)
-        run: pacman -Syu --noconfirm git quickshell socat ripgrep jq imagemagick mesa ttf-dejavu python xorg-server-xvfb xorg-xauth
+      - run: pacman -Syu --noconfirm git quickshell qt6-declarative socat ripgrep jq imagemagick mesa ttf-dejavu python nodejs curl github-cli xorg-server-xvfb xorg-xauth
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
       - uses: actions/cache@caa296126883cff596d87d8935842f9db880ef25 # v5
         with:
-          path: |
-            target/ci-ui/target/pinned-data
-            target/ci-ui/target/pinned
+          path: target/pinned-data
           key: ui-pin-x86_64-${{ hashFiles('engine/release.pin') }}
-      - name: Determine declared protocol compatibility
-        id: protocol
-        run: bash scripts/ci-protocol.sh >> "$GITHUB_OUTPUT"
       - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
-        if: needs.changes.outputs.engine == 'true' && steps.protocol.outputs.compatible == 'true'
+        if: needs.changes.outputs.engine == 'true'
         with:
-          name: engine-native-x86_64
+          name: engine-candidate
           path: target/candidate
-      - name: Prepare isolated UI tree
-        env:
-          ENGINE_CHANGED: ${{ needs.changes.outputs.engine }}
-          COMPATIBLE: ${{ steps.protocol.outputs.compatible }}
+      - name: Prepare verified published engine and fixtures
         run: |
           git config --global --add safe.directory "$GITHUB_WORKSPACE"
-          bash scripts/extract-fixtures.sh
-          args=(target/ci-ui)
-          if [[ "$ENGINE_CHANGED" == true && "$COMPATIBLE" == true ]]; then
-            chmod +x target/candidate/omastorm-engine-x86_64-unknown-linux-gnu
-            args+=(target/candidate/omastorm-engine-x86_64-unknown-linux-gnu)
-            echo 'UI checks use the source-built candidate.' >> "$GITHUB_STEP_SUMMARY"
-          else
-            echo 'UI checks use the verified published pin; candidate compatibility is not asserted.' >> "$GITHUB_STEP_SUMMARY"
-          fi
-          bash scripts/prepare-pinned-ui-check.sh "${args[@]}"
-      - name: Run applicable UI checks
+          python3 scripts/tooling/cli.py setup --profile ui
+      - name: Verify both public pin architectures
+        if: needs.changes.outputs.pin == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 scripts/tooling/release.py verify-pin
+      - name: Applicable pin and compatible candidate coverage
         env:
           UI_CHANGED: ${{ needs.changes.outputs.ui }}
+          INSTALLER_CHANGED: ${{ needs.changes.outputs.installer }}
+          ENGINE_CHANGED: ${{ needs.changes.outputs.engine }}
         run: |
-          # Several harnesses create their own sockets under $PWD. Unix
-          # socket paths must stay short even with nested runner workspaces.
-          ui_alias=$(mktemp -d /tmp/omastorm-ui.XXXXXX)
-          trap 'rm -rf "$ui_alias"' EXIT
-          ln -s "$PWD/target/ci-ui" "$ui_alias/tree"
-          cd "$ui_alias/tree"
-          scope=installer
-          if [[ "$UI_CHANGED" == true ]]; then scope=ui; fi
-          # Qt's offscreen OpenGL backend still needs an X display for GLX.
-          xvfb-run -a -s "-screen 0 1280x1024x24 +extension GLX" \
-            bash scripts/check.sh "$scope" --prebuilt
+          python3 scripts/tooling/cli.py test --scope ui
+          args=(test integration --scope installer)
+          if [[ "$UI_CHANGED" == true ]]; then args=(test integration --scope ui); fi
+          if [[ "$ENGINE_CHANGED" == true ]]; then
+            chmod +x target/candidate/omastorm-engine
+            args+=(--engine candidate --binary "$PWD/target/candidate/omastorm-engine")
+          fi
+          xvfb-run -a -s "-screen 0 1280x1024x24 +extension GLX" python3 scripts/tooling/cli.py "${args[@]}"
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         if: always()
         with:
-          name: ui-check-logs
-          path: |
-            target/ci-ui/target/check/logs
-            target/ci-ui/target/check-*/**/*.log
+          name: plugin-check-logs
+          path: target/evidence
           if-no-files-found: ignore
 
+  native-x86:
+    name: Platform x86_64
+    needs: changes
+    if: needs.changes.outputs.release == 'true'
+    uses: ./.github/workflows/native.yml
+    with:
+      arch: x86_64
+      runner: ubuntu-24.04
+
+  # The engine job covers x86_64 source. aarch64 runs for every engine change
+  # so an architecture failure surfaces before an immutable release tag.
+  native-arm:
+    name: Platform aarch64
+    needs: changes
+    if: needs.changes.outputs.engine == 'true' || needs.changes.outputs.release == 'true'
+    uses: ./.github/workflows/native.yml
+    with:
+      arch: aarch64
+      runner: ubuntu-24.04-arm
+
   bundle:
+    name: Platform packaging
     needs: [changes, native-x86, native-arm]
+    if: needs.changes.outputs.release == 'true'
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     steps:
@@ -191,72 +225,19 @@ jobs:
           pattern: engine-native-*
           merge-multiple: true
           path: target/dist
-      - name: Bundle both architectures and their exact checksums
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y binutils jq
-          bash scripts/package-engine-release.sh
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
-        with:
-          name: engine-release
-          path: |
-            target/dist/omastorm-engine-*
-            target/dist/SHA256SUMS
-            target/dist/release.pin
-          if-no-files-found: error
+      - run: python3 scripts/tooling/release.py package target/dist
 
   required:
     name: CI
     if: always()
-    needs: [changes, shell, pin, native-x86, native-arm, ui, bundle]
+    needs: [changes, lint, engine, plugin, native-x86, native-arm, bundle]
     runs-on: ubuntu-24.04
     timeout-minutes: 2
     steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
       - name: Require every selected job to pass
         env:
           RESULTS: ${{ toJSON(needs) }}
-        run: |
-          python3 - <<'PY'
-          import json, os
-          jobs = json.loads(os.environ['RESULTS'])
-          scope = jobs['changes']['outputs']
-          selected = {
-              'changes': True,
-              'shell': scope.get('shell') == 'true',
-              'pin': scope.get('pin') == 'true',
-              'native-x86': scope.get('engine') == 'true' or scope.get('release') == 'true',
-              'native-arm': scope.get('engine') == 'true' or scope.get('release') == 'true',
-              'ui': scope.get('ui') == 'true' or scope.get('installer') == 'true',
-              'bundle': scope.get('engine') == 'true' or scope.get('release') == 'true',
-          }
-          failed = [name for name, job in jobs.items()
-                    if (selected[name] and job['result'] != 'success')
-                    or (not selected[name] and job['result'] not in ('success', 'skipped'))]
-          if failed:
-              raise SystemExit('CI did not pass: ' + ', '.join(failed))
-          print('All applicable checks passed.')
-          PY
-
-  draft-release:
-    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/engine-')
-    needs: [bundle, required]
-    runs-on: ubuntu-24.04
-    timeout-minutes: 5
-    permissions:
-      contents: write
-    steps:
-      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
-        with:
-          name: engine-release
-          path: release
-      - name: Draft the engine release without replacing existing assets
-        env:
-          GH_TOKEN: ${{ github.token }}
-          GH_REPO: ${{ github.repository }}
-        run: |
-          cd release
-          sha256sum --check SHA256SUMS
-          gh release create "$GITHUB_REF_NAME" --verify-tag --draft \
-            --title "$GITHUB_REF_NAME" \
-            --notes 'Native x86_64 and ARM64 Linux engines. Publish this release before verifying and committing release.pin in the plugin.' \
-            omastorm-engine-* SHA256SUMS release.pin
+        run: python3 scripts/tooling/selection.py --gate

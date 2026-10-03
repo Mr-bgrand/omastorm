@@ -2,6 +2,11 @@
 set -euo pipefail
 cd "$(dirname "$0")"
 export OMASTORM_ROOT="$PWD"
+selected_engine=${OMASTORM_ENGINE_BINARY:-}
+if [[ -n $selected_engine && ! -x $selected_engine ]]; then
+  echo "Selected engine is not executable: $selected_engine" >&2
+  exit 1
+fi
 # Plugin bootstrap: no build and no second Quickshell process. A checkout
 # with a debug engine stays offline. Otherwise the pinned release installer
 # fetches once, verifies the committed sha256, and installs under
@@ -12,7 +17,9 @@ if [[ ${1:-} == --ensure ]]; then
     mkdir -p "$(dirname "$OMASTORM_BOOTSTRAP_LOG")"
     exec 2> "$OMASTORM_BOOTSTRAP_LOG"
   fi
-  if [[ -x target/debug/omastorm-engine ]]; then
+  if [[ -n $selected_engine ]]; then
+    exec "$selected_engine" ensure
+  elif [[ -x target/debug/omastorm-engine ]]; then
     exec target/debug/omastorm-engine ensure
   fi
   engine=$(bash scripts/fetch-engine.sh --print-path)
@@ -23,8 +30,11 @@ if [[ ! -f ui/shaders/radar.frag.qsb || ! -f ui/shaders/tile.frag.qsb || ! -f ui
   exit 1
 fi
 # Launch is strictly offline. Fetch build dependencies explicitly during setup.
-bash scripts/cargo.sh build --offline --locked --quiet
-target/debug/omastorm-engine ensure
+if [[ -z $selected_engine ]]; then
+  bash scripts/cargo.sh build --offline --locked --quiet
+  selected_engine=$PWD/target/debug/omastorm-engine
+fi
+"$selected_engine" ensure
 # A tty launch names this checkout and which files apply, so a leftover
 # archive daemon or the installed plugin is obvious. Captures are not a tty.
 if [[ -t 1 ]]; then
@@ -45,13 +55,8 @@ if [[ -t 1 ]]; then
   else
     location=$HOME/.local/state/omarchy/settings/weather.json
   fi
-  bar=$(bash scripts/link-plugin.sh --status)
+  bar="installed production copy"
   printf 'Omastorm %s\n  qml    %s\n  engine %s\n  bar    %s\n  config %s\n  state  %s\n  place  %s\n' \
     "$PWD" "${OMASTORM_QML:-ui/shell.qml}" "$mode" "$bar" "$config" "$state" "$location"
-fi
-# mise start / restart / onboard restart the Omarchy shell when this checkout
-# is linked, so the bar popover matches. Captures and checks leave it alone.
-if [[ -n ${OMASTORM_RESCAN_PLUGIN:-} ]]; then
-  bash scripts/link-plugin.sh --rescan
 fi
 exec quickshell -p "${OMASTORM_QML:-ui/shell.qml}" "$@"

@@ -21,7 +21,7 @@ QtObject {
     signal placesReady(var message)
     /// METARs answering this client's `metar_query`; a reply, not state.
     signal metarsReady(var message)
-    readonly property string runtime: Quickshell.env("XDG_RUNTIME_DIR") + "/omastorm/"
+    readonly property string runtime: Runtime.runtime
     property var sources: []
     readonly property string texture: state && state.frame && state.frame.texture ? "file://" + runtime + state.frame.texture : ""
     readonly property string azimuthLut: state && state.frame && state.frame.azimuthLut ? "file://" + runtime + state.frame.azimuthLut : ""
