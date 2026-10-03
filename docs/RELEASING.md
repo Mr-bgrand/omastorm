@@ -71,10 +71,8 @@ source-built candidates.
 
 ## Release notes
 
-Titles name the product without the tag's prefix: `Omastorm 0.1.17` and
-`Engine 0.1.11`. A feature release may add a theme, as in
-`Omastorm 0.1.16 — Playback, themes, and airport pins`. The tooling sets the
-plain title; add a theme by hand.
+Titles are the product and version only, without the tag's prefix or a
+subtitle: `Omastorm 0.1.17` and `Engine 0.1.11`. The tooling sets them.
 
 Write notes for people running the plugin, not from the PR list:
 
