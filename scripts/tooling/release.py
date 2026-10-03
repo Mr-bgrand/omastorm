@@ -245,6 +245,11 @@ def release_notes(product, name, repo, head):
     return f'Initial {product} release {name}.\n\nSource commit: {head}\n'
 
 
+def title(product, version):
+    # Tags carry the v/engine- prefix; release titles name the product.
+    return ('Omastorm ' if product == 'plugin' else 'Engine ') + version
+
+
 def tag(product):
     if git('symbolic-ref', '--quiet', '--short', 'HEAD') != 'main':
         raise RuntimeError('Tags require clean current main, after the version PR merges.')
@@ -271,7 +276,7 @@ def tag(product):
     run('git', 'tag', '-a', name, head, '-m', name, cwd=ROOT)
     run('git', 'push', 'origin', f'refs/tags/{name}', cwd=ROOT, timeout=120)
     if product == 'plugin':
-        args = ['gh', 'release', 'create', name, '--repo', repo, '--verify-tag', '--draft', '--notes', notes, '--title', name]
+        args = ['gh', 'release', 'create', name, '--repo', repo, '--verify-tag', '--draft', '--notes', notes, '--title', title('plugin', version)]
         run(*args, timeout=120)
     print(f'Tagged {name}. {"CI will draft native engine assets" if product == "engine" else "Plugin release is a draft"}; publication is an explicit GitHub action.')
 
@@ -346,7 +351,7 @@ def draft_engine(dist, name):
     package(dist)
     notes = release_notes('engine', name, repo, head)
     assets = [str(Path(dist) / asset) for asset in [f'omastorm-engine-{a}-unknown-linux-gnu{suffix}' for a in ARCHES for suffix in ('', '.build.json')] + ['SHA256SUMS', 'release.pin']]
-    run('gh', 'release', 'create', name, '--repo', repo, '--verify-tag', '--draft', '--title', name, '--notes', notes, *assets, timeout=120)
+    run('gh', 'release', 'create', name, '--repo', repo, '--verify-tag', '--draft', '--title', title('engine', version), '--notes', notes, *assets, timeout=120)
 
 
 if __name__ == '__main__':
