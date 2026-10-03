@@ -45,9 +45,12 @@ required `CI` check and receive maintainer review before merging.
 
 ## Labels
 
-Use the same labels on issues and PRs. Every issue has exactly one of `bug`
-or `enhancement`; apply the corresponding type to its PR for release notes.
-Add other labels only when they help someone decide what to do next.
+Every issue has exactly one of `bug` or `enhancement`. A PR's label sorts it
+in the release notes, so it describes what people running Omastorm see:
+`bug` for a user-visible fix, `enhancement` for a user-visible feature, and no
+type label for tooling, CI, tests or release chores, which then list under
+Other changes. Add other labels only when they help someone decide what to do
+next.
 
 | Label | Use |
 | --- | --- |

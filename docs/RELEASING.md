@@ -65,25 +65,21 @@ source-built candidates.
 2. After merge, run `mise release plugin tag` from clean freshly verified
    `main`. It pushes only `v<version>` and creates a draft titled
    `Omastorm <version>`. Existing tags/releases are refused.
-3. Replace the generated notes with [release notes](#release-notes), add any
-   release [media](media/README.md), then publish the draft in GitHub.
-   Keep README media URLs pointed at releases containing those assets.
+3. Check that each PR in the draft sits under the right heading. If one is
+   misfiled, fix its label per [CONTRIBUTING](../CONTRIBUTING.md#labels) and
+   regenerate the notes (Generate release notes in the draft editor).
+4. Add a [summary](#release-notes) above the generated notes and any release
+   [media](media/README.md), then publish the draft in GitHub. Keep README
+   media URLs pointed at releases containing those assets.
 
 ## Release notes
 
 Titles are the product and version only, without the tag's prefix or a
 subtitle: `Omastorm 0.1.17` and `Engine 0.1.11`. The tooling sets them.
 
-Write notes for people running the plugin, not from the PR list:
-
-- A one-line summary, then one section per user-visible change.
-- A `## Security` section first when the release fixes one; state the impact
-  plainly and credit the reporter.
-- Credit contributors by handle and link their PRs.
-- Fold tooling, CI and documentation work into a short `## Other changes`.
-- End with an `## Update` block (`omarchy plugin update com.omastorm.radar`,
-  `omarchy restart shell`), whether the engine changed, and the full
-  changelog link.
+Keep the generated notes. Above them, add a few sentences summarizing the
+highlights for people running the plugin. Name security fixes plainly and
+credit the reporter.
 
 Generated notes use an older ancestor tag from the same family, queried from remote
 state: engine tags compare with engine tags, plugin tags with plugin tags.
