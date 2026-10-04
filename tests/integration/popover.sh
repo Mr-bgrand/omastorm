@@ -9,7 +9,6 @@ scratch=$PWD/target/check-popover
 rm -rf "$scratch"
 mkdir -p "$scratch"
 # Runtime/cache are selected and owned by the shared runner.
-export QT_QPA_PLATFORM=offscreen QT_QPA_PLATFORMTHEME=basic QT_QUICK_BACKEND=rhi QSG_RHI_BACKEND=opengl
 export OMASTORM_CONFIG="$scratch/config.toml"
 export OMASTORM_STATE="$scratch/state.json"
 # A scratch plugin root, so the update notice can be driven by rewriting its
@@ -48,7 +47,7 @@ quickshell -p "$scratch/ui/PopoverHarness.qml" > "$scratch/ui.log" 2>&1 &
 pid=$!
 call() { quickshell ipc --pid "$pid" call popover "$@"; }
 status() { call status; }
-fail() { echo "$*" >&2; cat "$scratch/ui.log" >&2; exit 1; }
+fail_log="$scratch/ui.log"
 until_status() {
   local filter=$1
   for _ in {1..100}; do
@@ -155,5 +154,5 @@ until_status '.site == "KFCX" and .connected'
 call quit
 wait "$pid"
 pid=
-if rg 'Binding loop|ReferenceError|TypeError|Unable to assign|Failed to load' "$scratch/ui.log"; then fail 'QML runtime errors'; fi
+check_qml_log "$scratch/ui.log"
 echo 'Popover: archived provenance, expand preservation, treatment sharing, close/reopen, playback, lock, update notice, daemon restart PASS'

@@ -36,8 +36,7 @@ printf 'MockSocket 1.0 MockSocket.qml\n' >> "$scratch/ui/qmldir"
 OMASTORM_CONFIG="$scratch/empty.toml" OMASTORM_STATE="" \
   OMASTORM_LOCATION_URL="file://$scratch/ok.json" \
   PATH="$scratch/bin:$PATH" \
-  QT_QPA_PLATFORM=offscreen \
   timeout 20 quickshell -p "$scratch/ui/Test.qml" > "$scratch/log" 2>&1 || { cat "$scratch/log"; exit 1; }
 cat "$scratch/log"
 rg -q IP_LOCATION_PASSED "$scratch/log"
-! rg -q 'ReferenceError|TypeError|Binding loop|Unable to assign' "$scratch/log"
+check_qml_log "$scratch/log"

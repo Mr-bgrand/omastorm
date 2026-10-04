@@ -32,14 +32,12 @@ nearest = "s"
 bogus = "x"
 reset = 0
 TOML
-export QT_QPA_PLATFORM=offscreen QT_QPA_PLATFORMTHEME=basic QT_QUICK_BACKEND=rhi QSG_RHI_BACKEND=opengl
 OMASTORM_QML="$check_dir/ui/shell.qml" OMASTORM_CONFIG="$check_dir/config.toml" OMASTORM_LOCATION="$check_dir/weather.json" OMASTORM_STATE="$check_dir/state.json" bash run.sh > "$check_dir/log" 2>&1 &
 pid=$!
 trap 'kill "$pid" 2>/dev/null || true; wait "$pid" 2>/dev/null || true' EXIT
 call() { quickshell ipc --pid "$pid" call keys "$@"; }
 field() { call field "$1"; }
-fail() { printf '%s\n' "$@" >&2; cat "$check_dir/log" >&2; exit 1; }
-expect() { [[ "$3" == "$2" ]] || fail "$1" "Expected: $2" "Actual:   $3"; }
+fail_log="$check_dir/log"
 less() { awk -v a="$1" -v b="$2" 'BEGIN { exit !(a + 0 < b + 0) }'; }
 until_field() { # name, wanted
   for _ in {1..100}; do [[ $(field "$1") == "$2" ]] && return; sleep .1; done
@@ -163,5 +161,5 @@ until_field error ''
 until_field locationSource config
 until_field lat 35.333
 until_field lon -97.277
-if rg -q 'TypeError|ReferenceError|Unable to assign|Failed to create.*context|is not a function' "$check_dir/log"; then fail "QML errors in the log"; fi
+check_qml_log "$check_dir/log"
 echo "KEYS_PASSED"

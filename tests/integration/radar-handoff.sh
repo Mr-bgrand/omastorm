@@ -12,8 +12,7 @@ printf 'center_lat = 35.333\ncenter_lon = -97.278\n' > "$check_dir/config.toml"
 mkdir -p review
 OMASTORM_QML="$check_dir/shell.qml" OMASTORM_REVIEW="$PWD/review" \
   OMASTORM_CONFIG="$check_dir/config.toml" OMASTORM_STATE="$check_dir/state.json" OMASTORM_LOCATION=/dev/null \
-  QT_QPA_PLATFORM=offscreen QT_QPA_PLATFORMTHEME=basic QT_QUICK_BACKEND=rhi QSG_RHI_BACKEND=opengl \
   timeout 20 bash run.sh > "$check_dir/result.log" 2>&1
 cat "$check_dir/result.log"
 rg -q RADAR_HANDOFF_PASSED "$check_dir/result.log"
-if rg -q 'TypeError|ReferenceError|Unable to assign|Binding loop|Failed to create.*context' "$check_dir/result.log"; then exit 1; fi
+check_qml_log "$check_dir/result.log"

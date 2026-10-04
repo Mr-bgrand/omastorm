@@ -18,7 +18,6 @@ stage_ui "$scratch/ui"
 cp tests/harnesses/location.qml "$scratch/ui/shell.qml"
 export OMASTORM_QML="$scratch/ui/shell.qml"
 # Runtime/cache are selected and owned by the shared runner.
-export QT_QPA_PLATFORM=offscreen QT_QPA_PLATFORMTHEME=basic QT_QUICK_BACKEND=rhi QSG_RHI_BACKEND=opengl
 export OMASTORM_CONFIG="$scratch/config.toml" OMASTORM_STATE="$scratch/state.json"
 : > "$OMASTORM_CONFIG"
 # Stokesdale, NC, locked to its nearest radar, as the window left it.
@@ -38,7 +37,7 @@ bash run.sh > "$scratch/log" 2>&1 &
 pid=$!
 call() { quickshell ipc --pid "$pid" call keys "$@"; }
 field() { call field "$1"; }
-fail() { printf '%s\n' "$@" >&2; cat "$scratch/log" >&2; exit 1; }
+fail_log="$scratch/log"
 until_field() { # name, wanted
   for _ in {1..150}; do [[ $(field "$1" 2>/dev/null) == "$2" ]] && return; sleep .1; done
   fail "$1 never became $2: $(call status)"
@@ -78,5 +77,5 @@ wait_saved_view "$OMASTORM_STATE" "$want_lat" "$want_lon" "$want_span" \
 until_field site KAMX
 until_field locked true
 [[ $(lock_in_file) == KAMX ]] || fail "The reconnect rewrote the lock: $(cat "$OMASTORM_STATE")"
-if rg -q 'TypeError|ReferenceError|Unable to assign|is not a function' "$scratch/log"; then fail "QML errors in the log"; fi
+check_qml_log "$scratch/log"
 echo "RECONNECT_PASSED"

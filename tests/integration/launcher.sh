@@ -6,8 +6,6 @@ set -euo pipefail
 source "$(dirname "$0")/common.sh"
 cd "$(dirname "$0")/../.."
 
-fail() { printf '%s\n' "$@" >&2; exit 1; }
-
 scratch=$PWD/target/check-launcher
 rm -rf "$scratch"
 mkdir -p "$scratch"
@@ -56,7 +54,6 @@ rg -q '^Name=Omastorm$' "$desktop" || fail 'second run did not refresh omastorm.
 
 # The same DesktopEntries list the Omarchy launcher reads.
 cp tests/harnesses/launcher.qml "$scratch/probe.qml"
-export QT_QPA_PLATFORM=offscreen QT_QPA_PLATFORMTHEME=basic
 quickshell -p "$scratch/probe.qml" > "$scratch/probe.log" 2>&1 &
 pid=$!
 trap 'kill "$pid" 2>/dev/null || true; rm -rf "$scratch"' EXIT
