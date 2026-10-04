@@ -180,8 +180,8 @@ FocusScope {
                 weakFloor: card.session.weakFloor
                 labelSize: 10
                 radarOpacity: card.condition === "unavailable" ? .6 : 1
-                interactive: !card.session.needsLocation
-                onNavigated: (lat, lon, spanKm) => card.session.userNavigated(lat, lon, spanKm)
+                // The expand overlay above takes every click and wheel.
+                interactive: false
                 onViewSettled: (lat, lon) => card.requestMetars()
                 onTilesNeeded: (z, x0, y0, x1, y1) => connection.send({type: "tiles_needed", z: z, x0: x0, y0: y0, x1: x1, y1: y1})
                 function applyView() {

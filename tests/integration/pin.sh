@@ -9,15 +9,6 @@
 set -euo pipefail
 # shellcheck source=tests/integration/common.sh
 source "$(dirname "$0")/common.sh"
-# Ubuntu CI verifies installation and checksums for the published Arch binary,
-# whose newer glibc requirements prevent execution there. Native candidates
-# are executed separately; normal desktop checks always run the pinned one.
-published_runtime=true
-if [[ ${1:-} == --published-install-only ]]; then
-  published_runtime=false
-  shift
-fi
-[[ $# == 0 ]] || { echo 'Usage: tests/integration/pin.sh [--published-install-only]' >&2; exit 2; }
 cd "$(dirname "$0")/../.."
 
 fail() { printf '%s\n' "$@" >&2; exit 1; }
@@ -194,10 +185,6 @@ rm -f "$dest"
 OMASTORM_ENGINE_ASSET="${OMASTORM_PINNED_BINARY:?run mise setup first}" bash scripts/fetch-engine.sh
 if [[ -x $dest ]]; then
   [[ $(sha256sum -- "$dest" | awk '{print $1}') == "$committed" ]] || fail 'Pinned asset install did not match the pin'
-  if [[ $published_runtime == false ]]; then
-    echo 'Engine install fixtures and published asset checksum PASS; published runtime explicitly omitted (host libc compatibility).'
-    exit 0
-  fi
   "$dest" ensure
   hello=$(timeout 2 socat -t0.2 - "UNIX-CONNECT:$XDG_RUNTIME_DIR/omastorm/engine.sock" < /dev/null | head -n1 || true)
   "$dest" stop >/dev/null
