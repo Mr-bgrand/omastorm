@@ -87,7 +87,6 @@ impl FixtureMosaic {
             attribution: ATTRIBUTION,
             mosaic: Some(MosaicMeta {
                 coverage: &self.coverage,
-                selection_footprint: None,
                 selection_priority: SELECTION_PRIORITY,
                 covering: false,
             }),
