@@ -176,7 +176,6 @@ FocusScope {
                 metarMode: card.session.metarEnabled && Metar.available(card.state, connection.site, connection.source) && card.metars.length > 0
                 metars: card.metars
                 metarMark: Metar.markFromConfig(card.session.config.values) || "pin"
-                onMetarPicked: report => card.selectedMetar = report
                 treatment: card.session.treatment
                 weakFloor: card.session.weakFloor
                 labelSize: 10
@@ -248,7 +247,16 @@ FocusScope {
                     }
                 }
             }
-            MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: card.expandRequested() }
+            // A METAR chip opens its report; anywhere else expands.
+            MouseArea {
+                anchors.fill: parent
+                cursorShape: Qt.PointingHandCursor
+                onClicked: mouse => {
+                    var report = map.metarAt(mouse.x, mouse.y);
+                    if (report) card.selectedMetar = card.selectedMetar === report ? null : report;
+                    else card.expandRequested();
+                }
+            }
             // An update is on disk but this shell still runs the old plugin;
             // the click restarts the shell (PluginSession.updatePending).
             Rectangle {
