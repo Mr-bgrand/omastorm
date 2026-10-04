@@ -4,10 +4,7 @@
 use crate::{
     cog::{self, DecodedRaster},
     live_index,
-    protocol::{
-        AdapterTarget, Coverage, Crs, Ellipsoid, Family, FrameStatus, Kind, MosaicFrame,
-        ProductClass,
-    },
+    protocol::{Coverage, Crs, Ellipsoid, Family, FrameStatus, Kind, MosaicFrame, ProductClass},
     source::{GridEvent, MosaicMeta, SourceMetadataBorrowed},
     sweep,
 };
@@ -174,22 +171,12 @@ impl Opera {
         sweep::png(1, 1, &[0, 0, 0, 0]).map_err(|e| format!("encoding OPERA placeholder: {e}"))
     }
 
-    pub fn poll(
-        &self,
-        target: &AdapterTarget,
-        events: Sender<Event>,
-        known_keys: HashSet<String>,
-    ) -> Option<JoinHandle<()>> {
-        match target {
-            AdapterTarget::Mosaic => {
-                let palette = self.palette.clone();
-                let bounds = self.bounds.clone();
-                Some(tokio::spawn(async move {
-                    poll_loop(events, known_keys, palette, bounds).await;
-                }))
-            }
-            AdapterTarget::Site { .. } => None,
-        }
+    pub fn poll(&self, events: Sender<Event>, known_keys: HashSet<String>) -> JoinHandle<()> {
+        let palette = self.palette.clone();
+        let bounds = self.bounds.clone();
+        tokio::spawn(async move {
+            poll_loop(events, known_keys, palette, bounds).await;
+        })
     }
 }
 
@@ -693,17 +680,7 @@ impl<T> Drop for AbortOnDrop<T> {
 async fn list_http(day: NaiveDate) -> Result<Vec<CompObject>, String> {
     let prefix = prefix_for(day);
     let url = format!("{HOST}?list-type=2&prefix={prefix}&max-keys=1000");
-    let response = live_index::http_client()
-        .get(&url)
-        .send()
-        .await
-        .map_err(|e| format!("listing OPERA: {e}"))?
-        .error_for_status()
-        .map_err(|e| format!("listing OPERA: {e}"))?;
-    let bytes = live_index::take_body(response, live_index::LISTING_MAX)
-        .await
-        .map_err(|e| format!("reading OPERA listing: {e}"))?;
-    let body = String::from_utf8(bytes).map_err(|e| format!("reading OPERA listing: {e}"))?;
+    let body = live_index::listing_text(&url, "listing OPERA", "reading OPERA listing").await?;
     parse_dbzh_listing(&body)
 }
 

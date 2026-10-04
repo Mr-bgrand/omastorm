@@ -264,7 +264,7 @@ impl<'a> GridRef<'a> {
 
     fn poll(&self, events: Sender<GridEvent>, known: HashSet<String>) -> Option<JoinHandle<()>> {
         match self {
-            Self::Opera(a) => a.poll(&AdapterTarget::Mosaic, events, known),
+            Self::Opera(a) => Some(a.poll(events, known)),
             Self::FixtureMosaic(_) => None,
         }
     }

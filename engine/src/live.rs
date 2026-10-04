@@ -74,13 +74,6 @@ fn live_log(site: &str, message: impl std::fmt::Display) {
     );
 }
 
-/// A rediscovery (or a respawned poller) that finds only a sweep already
-/// in the catalog must not publish it again. The first join after a
-/// `select_site` still may, so `loading` can clear.
-fn skip_catalogued_replay(skip_known: bool, start_ms: i64, known: &[i64]) -> bool {
-    skip_known && known.contains(&start_ms)
-}
-
 /// What the poller reports to `main.rs`.
 pub enum Event {
     /// An earlier volume's complete lowest cut, fetched on joining: the
@@ -232,8 +225,11 @@ async fn deliver(
     let starts = matches!(chunk.chunk, Chunk::Start(_));
     match assembler.feed(starts, &volume, id.name(), radials) {
         Ok(Some(update)) => {
-            if known.is_some_and(|times| skip_catalogued_replay(true, update.sweep.start_ms, times))
-            {
+            // A rediscovery (or a respawned poller) that finds only a sweep
+            // already in the catalog must not publish it again. The first
+            // join after a `select_site` (no `known`) still may, so `loading`
+            // can clear.
+            if known.is_some_and(|times| times.contains(&update.sweep.start_ms)) {
                 return true;
             }
             events
@@ -1138,23 +1134,6 @@ mod tests {
             assert!(!connect_reset(&Error::AWS(AWSError::S3GetObjectRequest(e))));
             assert!(!connect_reset(&Error::AWS(AWSError::S3ObjectNotFound)));
         });
-    }
-
-    #[test]
-    fn a_catalogued_replay_is_skipped_after_the_first_join() {
-        let start = 1_367_082_403_000;
-        assert!(
-            !skip_catalogued_replay(false, start, &[start]),
-            "the first join after select_site still publishes, so loading can clear"
-        );
-        assert!(
-            !skip_catalogued_replay(true, start, &[start + 1]),
-            "a newer volume is not in the catalog"
-        );
-        assert!(
-            skip_catalogued_replay(true, start, &[start]),
-            "a rediscovery of the same sweep must not republish it"
-        );
     }
 
     const FIXTURE: &str = concat!(
