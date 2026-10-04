@@ -31,14 +31,10 @@ class Commands(unittest.TestCase):
             self.assertEqual(error.exception.code,2)
             start.assert_not_called()
 
-    def test_nine_public_commands_and_help(self):
+    def test_eight_public_commands_and_help(self):
         p = cli.parser()
         self.assertEqual(set(p._subparsers._group_actions[0].choices),
-                         {'setup', 'dev', 'test', 'lint', 'format', 'build', 'check', 'bench', 'release'})
-        self.assertEqual(p.parse_args(['bench']).harness, 'recorded')
-        self.assertEqual(p.parse_args(['bench', 'eccc', '--runs', '1']).options, ['--runs', '1'])
-        for harness in cli.BENCH.values():
-            self.assertTrue((cli.ROOT / harness).is_file(), harness)
+                         {'setup', 'dev', 'test', 'lint', 'format', 'build', 'check', 'release'})
         self.assertIsNone(p.parse_args(['release']).product)
         self.assertEqual(p.parse_args(['dev']).engine, 'pin')
         with self.assertRaises(SystemExit) as error:
