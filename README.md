@@ -359,6 +359,9 @@ Thanks to these people
       <td align="center" valign="top" width="14.28%"><a href="https://github.com/fearjet44"><img src="https://avatars.githubusercontent.com/u/314382095?v=4?s=100" width="100px;" alt="Justin Hagemeier"/><br /><sub><b>Justin Hagemeier</b></sub></a><br /><a href="https://github.com/wesleygrimes/omastorm/commits?author=fearjet44" title="Code">💻</a> <a href="https://github.com/wesleygrimes/omastorm/commits?author=fearjet44" title="Documentation">📖</a></td>
       <td align="center" valign="top" width="14.28%"><a href="https://github.com/Noah-Brown"><img src="https://avatars.githubusercontent.com/u/14036855?v=4?s=100" width="100px;" alt="Noah-Brown"/><br /><sub><b>Noah-Brown</b></sub></a><br /><a href="https://github.com/wesleygrimes/omastorm/commits?author=Noah-Brown" title="Code">💻</a></td>
     </tr>
+    <tr>
+      <td align="center" valign="top" width="14.28%"><a href="http://neidetcher.com"><img src="https://avatars.githubusercontent.com/u/21937?v=4?s=100" width="100px;" alt="Demian Neidetcher"/><br /><sub><b>Demian Neidetcher</b></sub></a><br /><a href="https://github.com/wesleygrimes/omastorm/commits?author=demian0311" title="Code">💻</a> <a href="https://github.com/wesleygrimes/omastorm/commits?author=demian0311" title="Documentation">📖</a></td>
+    </tr>
   </tbody>
 </table>
 
