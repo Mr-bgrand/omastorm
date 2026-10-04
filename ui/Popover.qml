@@ -247,7 +247,8 @@ FocusScope {
                     }
                 }
             }
-            // A METAR chip opens its report; anywhere else expands.
+            // A METAR chip opens its report; anywhere else expands. The wheel
+            // stops here so the popover never zooms the remembered view.
             MouseArea {
                 anchors.fill: parent
                 cursorShape: Qt.PointingHandCursor
@@ -256,6 +257,7 @@ FocusScope {
                     if (report) card.selectedMetar = card.selectedMetar === report ? null : report;
                     else card.expandRequested();
                 }
+                onWheel: wheel => { wheel.accepted = true }
             }
             // An update is on disk but this shell still runs the old plugin;
             // the click restarts the shell (PluginSession.updatePending).
