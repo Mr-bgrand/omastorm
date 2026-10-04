@@ -13,13 +13,11 @@ check_dir="$PWD/target/check-picker"
 mkdir -p "$check_dir"
 : > "$check_dir/none.toml"
 jq -c '.sites[] | select(.id=="KTLX") | {lat, lon, span: 210}' engine/data/sites.json > "$check_dir/state.json"
-export QT_QPA_PLATFORM=offscreen QT_QPA_PLATFORMTHEME=basic QT_QUICK_BACKEND=rhi QSG_RHI_BACKEND=opengl
 OMASTORM_CONFIG="$check_dir/none.toml" OMASTORM_STATE="$check_dir/state.json" bash run.sh > "$check_dir/log" 2>&1 &
 pid=$!
 trap 'kill "$pid" 2>/dev/null || true; wait "$pid" 2>/dev/null || true' EXIT
 call() { quickshell ipc --pid "$pid" call picker "$@"; }
-fail() { printf '%s\n' "$@" >&2; cat "$check_dir/log" >&2; exit 1; }
-expect() { [[ "$3" == "$2" ]] || fail "$1" "Expected: $2" "Actual:   $3"; }
+fail_log="$check_dir/log"
 for _ in {1..100}; do call status > /dev/null 2>&1 && break; sleep .1; done
 call status > /dev/null || fail "The window's picker IPC never answered"
 call open ""
@@ -85,5 +83,5 @@ for _ in {1..50}; do
   sleep .1
 done
 [[ $lat == "$want_lat" && $lon == "$want_lon" ]] || fail "Enter did not centre the map on $first" "Expected: $want_lat $want_lon" "Actual:   $lat $lon"
-if rg -q 'TypeError|ReferenceError|Unable to assign|Failed to create.*context' "$check_dir/log"; then fail "QML errors in the log"; fi
+check_qml_log "$check_dir/log"
 echo "PICKER_PASSED"

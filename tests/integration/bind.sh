@@ -7,7 +7,6 @@ set -euo pipefail
 source "$(dirname "$0")/common.sh"
 cd "$(dirname "$0")/../.."
 
-fail() { printf '%s\n' "$@" >&2; exit 1; }
 
 bind='o.bind("SUPER + SHIFT + R", "Omastorm", "omarchy shell shell toggle com.omastorm.radar '"'"'{}'"'"'")'
 rg -F -- "$bind" README.md >/dev/null \

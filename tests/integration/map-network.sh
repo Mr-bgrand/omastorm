@@ -11,8 +11,7 @@ rm -f review/network-*.png
 stage_ui "$check_dir"
 cp tests/map-network.qml "$check_dir/shell.qml"
 OMASTORM_QML="$check_dir/shell.qml" OMASTORM_REVIEW="$PWD/review" \
- QT_QPA_PLATFORM=offscreen QT_QPA_PLATFORMTHEME=basic QT_QUICK_BACKEND=rhi QSG_RHI_BACKEND=opengl \
  timeout 100 bash run.sh > "$check_dir/result.log" 2>&1
 cat "$check_dir/result.log"
 rg -q MAP_NETWORK_PASSED "$check_dir/result.log"
-if rg -q 'TypeError|ReferenceError|Unable to assign|Failed to create.*context' "$check_dir/result.log"; then exit 1; fi
+check_qml_log "$check_dir/result.log"

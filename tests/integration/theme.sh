@@ -11,7 +11,6 @@ trap 'if [[ -n ${pid:-} ]]; then kill "$pid" 2>/dev/null || true; wait "$pid" 2>
 mkdir -p "$tmp/ui" "$tmp/theme"
 cp ui/Theme.qml ui/Toml.js "$tmp/ui/"
 cp tests/harnesses/theme.qml "$tmp/ui/shell.qml"
-export QT_QPA_PLATFORM=offscreen QT_QPA_PLATFORMTHEME=basic
 export OMASTORM_THEME_DIR="$tmp/theme" OMASTORM_USER_SHELL="$tmp/user.toml"
 quickshell -p "$tmp/ui/shell.qml" > "$tmp/log" 2>&1 &
 pid=$!
