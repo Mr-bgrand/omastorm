@@ -687,8 +687,13 @@ Item {
             sweepB.snapshot = null;
             return;
         }
-        if (frontBuffer && frontBuffer.snapshot.key !== sweepKey) {
-            frontBuffer = null;
+        // Release any buffer from another source or site, so a retiring
+        // buffer does not hold the old source's image (OPERA is ~64 MiB).
+        for (var stale of [sweepA, sweepB]) {
+            if (!stale.snapshot || stale.snapshot.key === sweepKey) continue;
+            stale.snapshot = null;
+            if (frontBuffer === stale) frontBuffer = null;
+            if (loadingBuffer === stale) loadingBuffer = null;
         }
         function matches(buffer) {
             return buffer && buffer.snapshot && buffer.snapshot.key === sweepKey
