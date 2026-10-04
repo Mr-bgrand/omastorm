@@ -981,6 +981,20 @@ impl Shared {
         self.broadcast();
         shown
     }
+    /// Drop the oldest timeline entries past the mosaic source's history
+    /// depth, and their frames from the ring. True when any went.
+    fn trim_mosaic_history(&mut self) -> bool {
+        let Some(max) = self
+            .mosaic_source_id()
+            .and_then(|id| self.registry.history_max(id))
+        else {
+            return false;
+        };
+        let excess = self.timeline.stored.len().saturating_sub(max);
+        let gone: Vec<String> = self.timeline.stored.drain(..excess).map(|e| e.id).collect();
+        self.mosaic.retain(|f| !gone.contains(&f.id));
+        excess > 0
+    }
     /// A live mosaic frame arrived: store it in the mosaic ring and show
     /// it while following the newest.
     fn mosaic_arrived(
@@ -1008,17 +1022,7 @@ impl Shared {
             start_ms,
         };
         let mut dropped = self.timeline.complete(entry);
-        if let Some(max) = self
-            .mosaic_source_id()
-            .and_then(|id| self.registry.history_max(id))
-        {
-            while self.timeline.stored.len() > max {
-                let old_id = self.timeline.stored[0].id.clone();
-                self.timeline.stored.remove(0);
-                self.mosaic.retain(|f| f.id != old_id);
-                dropped = true;
-            }
-        }
+        dropped |= self.trim_mosaic_history();
         let frame = self.store_mosaic(frame, &texture)?;
         self.mosaic
             .retain(|f| self.timeline.stored.iter().any(|e| e.id == f.id) || f.id == frame.id);
@@ -1056,17 +1060,7 @@ impl Shared {
             start_ms,
         };
         let mut dropped = self.timeline.insert(entry);
-        if let Some(max) = self
-            .mosaic_source_id()
-            .and_then(|id| self.registry.history_max(id))
-        {
-            while self.timeline.stored.len() > max {
-                let old_id = self.timeline.stored[0].id.clone();
-                self.timeline.stored.remove(0);
-                self.mosaic.retain(|f| f.id != old_id);
-                dropped = true;
-            }
-        }
+        dropped |= self.trim_mosaic_history();
         self.store_mosaic(frame, &texture)?;
         self.mosaic
             .retain(|f| self.timeline.stored.iter().any(|e| e.id == f.id));
@@ -1300,6 +1294,24 @@ fn decode_and_publish(dir: &Path, template: &Frame, archive: &[u8]) -> io::Resul
 fn live_selected(shared: &Shared, site: &str) -> bool {
     shared.state.mode == Mode::Live && shared.polar_site_id() == Some(site)
 }
+/// The frame for `sweep` and the catalog it is stored in, while `site` is
+/// still the live selection.
+fn frame_for(
+    shared: &Mutex<Shared>,
+    site: &str,
+    sweep: &sweep::Sweep,
+    complete: bool,
+) -> Option<(Frame, Arc<catalog::Catalog>)> {
+    let shared = shared.lock().unwrap();
+    if !live_selected(&shared, site) {
+        return None;
+    }
+    let station = shared.sites.iter().find(|s| s.id == site)?;
+    Some((
+        live_frame(&shared.template, station, sweep, complete),
+        shared.catalog.clone(),
+    ))
+}
 async fn live_events(shared: Arc<Mutex<Shared>>, mut events: Receiver<live::Event>) {
     while let Some(event) = events.recv().await {
         match event {
@@ -1309,18 +1321,8 @@ async fn live_events(shared: Arc<Mutex<Shared>>, mut events: Receiver<live::Even
                 complete,
                 provenance,
             } => {
-                let (frame, catalog) = {
-                    let shared = shared.lock().unwrap();
-                    if !live_selected(&shared, &site) {
-                        continue;
-                    }
-                    let Some(station) = shared.sites.iter().find(|s| s.id == site) else {
-                        continue;
-                    };
-                    (
-                        live_frame(&shared.template, station, &sweep, complete),
-                        shared.catalog.clone(),
-                    )
+                let Some((frame, catalog)) = frame_for(&shared, &site, &sweep, complete) else {
+                    continue;
                 };
                 let site_id = site.clone();
                 let encoded = spawn_blocking(move || -> io::Result<Arrival> {
@@ -1376,18 +1378,8 @@ async fn live_events(shared: Arc<Mutex<Shared>>, mut events: Receiver<live::Even
                 sweep,
                 provenance,
             } => {
-                let (frame, catalog) = {
-                    let shared = shared.lock().unwrap();
-                    if !live_selected(&shared, &site) {
-                        continue;
-                    }
-                    let Some(station) = shared.sites.iter().find(|s| s.id == site) else {
-                        continue;
-                    };
-                    (
-                        live_frame(&shared.template, station, &sweep, true),
-                        shared.catalog.clone(),
-                    )
+                let Some((frame, catalog)) = frame_for(&shared, &site, &sweep, true) else {
+                    continue;
                 };
                 let site_id = site.clone();
                 let stored = spawn_blocking(move || -> io::Result<Entry> {
