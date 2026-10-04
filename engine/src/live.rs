@@ -74,6 +74,31 @@ fn live_log(site: &str, message: impl std::fmt::Display) {
     );
 }
 
+/// `call` under `limit`; a failure or timeout becomes a reason naming `what`.
+async fn within<T, E: std::fmt::Display>(
+    limit: Duration,
+    what: impl std::fmt::Display,
+    call: impl Future<Output = Result<T, E>>,
+) -> Result<T, String> {
+    match timeout(limit, call).await {
+        Ok(Ok(value)) => Ok(value),
+        Ok(Err(e)) => Err(format!("{what}: {e}")),
+        Err(_) => Err(format!("{what} timed out")),
+    }
+}
+
+/// `call` under `CALL_TIMEOUT`, logging a failure or timeout as `what`.
+async fn logged<T, E: std::fmt::Display>(
+    site: &str,
+    what: impl std::fmt::Display,
+    call: impl Future<Output = Result<T, E>>,
+) -> Option<T> {
+    within(CALL_TIMEOUT, what, call)
+        .await
+        .inspect_err(|reason| live_log(site, reason))
+        .ok()
+}
+
 /// What the poller reports to `main.rs`.
 pub enum Event {
     /// An earlier volume's complete lowest cut, fetched on joining: the
@@ -355,10 +380,9 @@ async fn replay(site: &str, ids: &[ChunkIdentifier]) -> Vec<DownloadedChunk> {
         .iter()
         .filter(|id| id.sequence() <= LOW_CUT_REPLAY || id.name() == newest.name())
     {
-        match timeout(CALL_TIMEOUT, fetch(site, id)).await {
-            Ok(Ok(chunk)) => chunks.push(chunk),
-            Ok(Err(e)) => live_log(site, format_args!("replaying {}: {e}", id.name())),
-            Err(_) => live_log(site, format_args!("replaying {} timed out", id.name())),
+        if let Some(chunk) = logged(site, format!("replaying {}", id.name()), fetch(site, id)).await
+        {
+            chunks.push(chunk);
         }
     }
     chunks
@@ -403,33 +427,21 @@ fn prior_volumes(
 async fn backfill(site: String, events: Sender<Event>, join: live_index::Join, cached: Vec<i64>) {
     sleep(BACKFILL_DELAY).await;
     let today = Utc::now().date_naive();
-    let today_vols = match timeout(CALL_TIMEOUT, live_index::archive_volumes(&site, today)).await {
-        Ok(Ok(vols)) => vols,
-        Ok(Err(e)) => {
-            live_log(&site, format_args!("backfill listing archive: {e}"));
-            return;
-        }
-        Err(_) => {
-            live_log(&site, "backfill listing archive timed out");
-            return;
-        }
+    let listing = "backfill listing archive";
+    let Some(today_vols) = logged(&site, listing, live_index::archive_volumes(&site, today)).await
+    else {
+        return;
     };
     let yesterday = if today_vols.len() < BACKFILL_VOLUMES + 1 {
         let Some(day) = today.pred_opt() else {
             live_log(&site, "backfill listing archive: no yesterday");
             return;
         };
-        match timeout(CALL_TIMEOUT, live_index::archive_volumes(&site, day)).await {
-            Ok(Ok(vols)) => vols,
-            Ok(Err(e)) => {
-                live_log(&site, format_args!("backfill listing archive: {e}"));
-                return;
-            }
-            Err(_) => {
-                live_log(&site, "backfill listing archive timed out");
-                return;
-            }
-        }
+        let Some(vols) = logged(&site, listing, live_index::archive_volumes(&site, day)).await
+        else {
+            return;
+        };
+        vols
     } else {
         Vec::new()
     };
@@ -439,37 +451,16 @@ async fn backfill(site: String, events: Sender<Event>, join: live_index::Join, c
         if catalogued_near(&cached, entry.stamp) {
             continue;
         }
-        let volume = match timeout(CALL_TIMEOUT, live_index::archived_slot(&entry.key)).await {
-            Ok(Ok(volume)) => volume,
-            Ok(Err(e)) => {
-                live_log(&site, format_args!("backfill header {}: {e}", entry.key));
-                return;
-            }
-            Err(_) => {
-                live_log(
-                    &site,
-                    format_args!("backfill header {} timed out", entry.key),
-                );
-                return;
-            }
+        let header = format!("backfill header {}", entry.key);
+        let Some(volume) = logged(&site, header, live_index::archived_slot(&entry.key)).await
+        else {
+            return;
         };
         let after = entry.stamp - TimeDelta::seconds(1);
-        let ids = match timeout(CALL_TIMEOUT, live_index::list_after(&site, volume, after)).await {
-            Ok(Ok(ids)) => ids,
-            Ok(Err(e)) => {
-                live_log(
-                    &site,
-                    format_args!("backfill listing volume {}: {e}", volume.as_number()),
-                );
-                return;
-            }
-            Err(_) => {
-                live_log(
-                    &site,
-                    format_args!("backfill listing volume {} timed out", volume.as_number()),
-                );
-                return;
-            }
+        let what = format!("backfill listing volume {}", volume.as_number());
+        let Some(ids) = logged(&site, what, live_index::list_after(&site, volume, after)).await
+        else {
+            return;
         };
         let Some((_, ids)) = live_index::generation(ids, |stamp| stamp == entry.stamp) else {
             continue;
@@ -480,16 +471,10 @@ async fn backfill(site: String, events: Sender<Event>, join: live_index::Join, c
         let name = format!("{site}/{:03}", volume.as_number());
         let mut assembler = Assembler::default();
         for id in ids.iter().take(BACKFILL_CHUNKS) {
-            let chunk = match timeout(CALL_TIMEOUT, fetch(&site, id)).await {
-                Ok(Ok(got)) => got,
-                Ok(Err(e)) => {
-                    live_log(&site, format_args!("backfill {}: {e}", id.name()));
-                    break;
-                }
-                Err(_) => {
-                    live_log(&site, format_args!("backfill {} timed out", id.name()));
-                    break;
-                }
+            let Some(chunk) =
+                logged(&site, format!("backfill {}", id.name()), fetch(&site, id)).await
+            else {
+                break;
             };
             let radials = match radials_of(&chunk.chunk) {
                 Ok(radials) => radials,
@@ -632,34 +617,27 @@ pub async fn poll(site: String, events: Sender<Event>, cached: Vec<i64>, skip_kn
     let mut known = cached;
     let mut skip_known = skip_known;
     loop {
-        let join = match timeout(START_TIMEOUT, live_index::latest(&site)).await {
-            Ok(Ok(Some(join))) => join,
-            Ok(Ok(None)) => {
-                if events
-                    .send(Event::Silent {
-                        site: site.clone(),
-                        reason: "no archived volume or no chunks newer than it for this station"
-                            .into(),
-                    })
-                    .await
-                    .is_err()
-                {
-                    return;
-                }
-                sleep(back_off).await;
-                back_off = (back_off * 2).min(MAX_BACK_OFF);
-                continue;
-            }
-            Ok(Err(e)) => {
-                if !offline(&events, &site, format!("finding the latest volume: {e}")).await {
-                    return;
-                }
-                sleep(back_off).await;
-                back_off = (back_off * 2).min(MAX_BACK_OFF);
-                continue;
-            }
-            Err(_) => {
-                if !offline(&events, &site, "finding the latest volume timed out".into()).await {
+        let latest = within(
+            START_TIMEOUT,
+            "finding the latest volume",
+            live_index::latest(&site),
+        );
+        let join = match latest.await {
+            Ok(Some(join)) => join,
+            missing => {
+                let reported = match missing {
+                    Ok(_) => events
+                        .send(Event::Silent {
+                            site: site.clone(),
+                            reason:
+                                "no archived volume or no chunks newer than it for this station"
+                                    .into(),
+                        })
+                        .await
+                        .is_ok(),
+                    Err(reason) => offline(&events, &site, reason).await,
+                };
+                if !reported {
                     return;
                 }
                 sleep(back_off).await;
@@ -743,7 +721,7 @@ pub async fn poll(site: String, events: Sender<Event>, cached: Vec<i64>, skip_kn
                 break;
             };
             cursor = next_cursor;
-            match next {
+            let (reset, reason) = match next {
                 Ok(Ok(Some(chunk))) => {
                     failures.clear();
                     // Walking old generations is not progress: rediscover if
@@ -761,35 +739,25 @@ pub async fn poll(site: String, events: Sender<Event>, cached: Vec<i64>, skip_kn
                     {
                         known.push(start_ms);
                     }
+                    continue;
                 }
                 Ok(Ok(None)) => unreachable!("empty polls are consumed by wait_for_progress"),
-                Ok(Err(e)) => {
-                    failures.record(connect_reset(&e));
-                    let reason = format!("fetching the next chunk: {e} ({e:?})");
-                    if !failures.offline() {
-                        live_log(&site, format_args!("{reason}; retrying"));
-                    } else if !offline(&events, &site, reason).await {
-                        return;
-                    }
-                    if failures.restart() {
-                        break;
-                    }
-                    sleep(BACK_OFF).await;
-                }
-                Err(_) => {
-                    failures.record(false);
-                    let reason = "fetching the next chunk timed out".to_owned();
-                    if !failures.offline() {
-                        live_log(&site, format_args!("{reason}; retrying"));
-                    } else if !offline(&events, &site, reason).await {
-                        return;
-                    }
-                    if failures.restart() {
-                        break;
-                    }
-                    sleep(BACK_OFF).await;
-                }
+                Ok(Err(e)) => (
+                    connect_reset(&e),
+                    format!("fetching the next chunk: {e} ({e:?})"),
+                ),
+                Err(_) => (false, "fetching the next chunk timed out".to_owned()),
+            };
+            failures.record(reset);
+            if !failures.offline() {
+                live_log(&site, format_args!("{reason}; retrying"));
+            } else if !offline(&events, &site, reason).await {
+                return;
             }
+            if failures.restart() {
+                break;
+            }
+            sleep(BACK_OFF).await;
         }
     }
 }
