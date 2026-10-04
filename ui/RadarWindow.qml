@@ -341,8 +341,6 @@ Item {
     // hand-offs; `n` releases it and selects the nearest radar without moving
     // the camera. The site picker locks and centres on that station.
     readonly property bool locked: state && state.navigation ? state.navigation.locked : false
-    readonly property bool following: state && state.navigation ? state.navigation.follow && !state.navigation.locked : false
-    readonly property var resetTarget: Location.resolveReset(Location.configCenter(config.values), config.location)
     readonly property bool outsideCoverage: {
         if (!locked) return false;
         if (engine.site && engine.site.coverage)
@@ -354,18 +352,6 @@ Item {
     function toggleLock() {
         if (!state || !state.selection) return;
         store.setLock(locked ? null : state.selection, !locked);
-    }
-    readonly property string placeLabel: {
-        var t = app.resetTarget;
-        if (t && Location.distanceKm(map.centerLat, map.centerLon, t.lat, t.lon) < 2) return (t.name || "OMARCHY'S LOCATION").toUpperCase();
-        if (app.store.placeName && Location.distanceKm(map.centerLat, map.centerLon, app.store.centerLat, app.store.centerLon) < 2) {
-            var name = app.store.placeName.toUpperCase();
-            return app.store.locationSource === "ip" ? "IP NEAR " + name : name;
-        }
-        if (app.store.locationSource === "ip" && Location.distanceKm(map.centerLat, map.centerLon, app.store.centerLat, app.store.centerLon) < 2)
-            return "IP NEAR YOU";
-        var lat = map.centerLat, lon = map.centerLon;
-        return Math.abs(lat).toFixed(2) + "° " + (lat < 0 ? "S" : "N") + "  " + Math.abs(lon).toFixed(2) + "° " + (lon < 0 ? "W" : "E");
     }
     property string mapNotice: ""
     Timer { id: mapNoticeTimer; interval: Quickshell.env("OMASTORM_CAPTURE") ? 20000 : 3000; onTriggered: app.mapNotice = "" }
@@ -477,24 +463,6 @@ Item {
             font.pixelSize: app.theme.baseSize
             elide: Text.ElideRight
         }
-        component Control: Button {
-            id: button
-            property bool selected: false
-            implicitHeight: 30
-            implicitWidth: Math.max(30, contentItem.implicitWidth + 18)
-            padding: 6
-            contentItem: LabelText {
-                text: button.text
-                color: button.selected ? app.theme.background : app.theme.foreground
-                horizontalAlignment: Text.AlignHCenter
-                verticalAlignment: Text.AlignVCenter
-            }
-            background: Rectangle {
-                color: button.selected ? app.theme.accent : button.hovered || button.activeFocus ? Qt.alpha(app.theme.accent, .18) : "transparent"
-                border.width: 1
-                border.color: button.selected || button.activeFocus ? app.theme.accent : Qt.alpha(app.theme.foreground, .22)
-            }
-        }
         // Chrome icons as Nerd Font glyphs (same Material Design Icons set
         // Omarchy's shell uses for media / panels). The theme's monospace
         // alias resolves to JetBrainsMono Nerd Font on Omarchy.
@@ -543,54 +511,6 @@ Item {
                 color: transport.selected ? app.theme.accent : transport.hovered ? Qt.alpha(app.theme.accent, .18) : "transparent"
                 border.width: 1
                 border.color: transport.selected ? app.theme.accent : Qt.alpha(app.theme.foreground, .22)
-            }
-        }
-        // MOCK: one chip per idea, in two parts. The name opens the picker;
-        // the glyph to its right is the toggle (crosshair = follow place,
-        // padlock = pin radar), filled with the accent while on.
-        component Chip: RowLayout {
-            id: chip
-            property string glyph: "locate"
-            property string label: ""
-            property string tag: ""
-            property bool on: false
-            property bool tagAccent: false
-            property bool enabled: true
-            signal toggled()
-            signal opened()
-            spacing: 0
-            Button {
-                id: name
-                implicitHeight: 30
-                implicitWidth: contentItem.implicitWidth + (win.compact ? 14 : 22)
-                padding: 0
-                focusPolicy: Qt.NoFocus
-                enabled: chip.enabled
-                visible: !win.compact
-                onClicked: chip.opened()
-                contentItem: RowLayout {
-                    spacing: 7
-                    Item { Layout.fillWidth: true }
-                    LabelText { text: chip.label; opacity: chip.enabled ? 1 : .35 }
-                    LabelText {
-                        text: chip.tag; visible: chip.tag !== ""
-                        color: chip.tagAccent ? app.theme.accent : app.theme.foreground
-                        opacity: chip.tagAccent ? .9 : .55
-                        font.pixelSize: 10; font.letterSpacing: 1
-                    }
-                    Glyph { glyph: "chevron"; implicitWidth: 12; fade: .6 }
-                    Item { Layout.fillWidth: true }
-                }
-                background: Rectangle {
-                    color: name.hovered ? Qt.alpha(app.theme.accent, .18) : "transparent"
-                    border.width: 1
-                    border.color: Qt.alpha(app.theme.foreground, .22)
-                }
-            }
-            GlyphButton {
-                glyph: chip.glyph; selected: chip.on; enabled: chip.enabled
-                Layout.leftMargin: -1
-                onClicked: chip.toggled()
             }
         }
         Rectangle {
@@ -1251,59 +1171,6 @@ Item {
                     }
                 }
             }
-
-            RowLayout {
-                Layout.fillWidth: true
-                spacing: 5
-                // MOCK: the bar is hidden. Radar moved to the header, the
-                // place to the map, treatment and zoom to the keys and wheel.
-                visible: false
-                Chip {
-                    glyph: "locate"
-                    label: app.placeLabel
-                    on: false
-                    onOpened: locationPicker.show("")
-                    onToggled: app.run("locate")
-                }
-                Chip {
-                    glyph: "lock"
-                    label: app.siteId || "—"
-                    tag: app.locked ? "LOCKED" : "FOLLOWING"
-                    on: app.locked
-                    tagAccent: app.locked
-                    enabled: !!app.state
-                    onToggled: app.toggleLock()
-                    onOpened: locationPicker.show("", "sites")
-                }
-                Item { width: 6 }
-                Item { Layout.fillWidth: true }
-                // The treatment chip (DESIGN.md, treatment control): one
-                // low-emphasis control naming the treatment; click opens the
-                // three in the picker's row style above it, 1 2 3 choose.
-                Button {
-                    id: treatmentChip
-                    implicitHeight: 30
-                    implicitWidth: contentItem.implicitWidth + 18
-                    padding: 0
-                    opacity: treatmentMenu.opened || hovered || activeFocus ? 1 : .7
-                    onClicked: treatmentMenu.opened ? treatmentMenu.close() : treatmentMenu.show()
-                    contentItem: RowLayout {
-                        spacing: 6
-                        Item { Layout.fillWidth: true }
-                        LabelText { text: app.treatment }
-                        Glyph { glyph: "chevron"; implicitWidth: 12 }
-                        Item { Layout.fillWidth: true }
-                    }
-                    background: Rectangle {
-                        color: treatmentMenu.opened || treatmentChip.hovered || treatmentChip.activeFocus ? Qt.alpha(app.theme.accent, .18) : "transparent"
-                        border.width: 1
-                        border.color: treatmentMenu.opened || treatmentChip.activeFocus ? app.theme.accent : Qt.alpha(app.theme.foreground, .22)
-                    }
-                }
-                Rectangle { width: 1; height: 18; color: Qt.alpha(app.theme.foreground, .22); Layout.leftMargin: 4; Layout.rightMargin: 4; visible: !win.compact }
-                Control { text: "−"; visible: !win.compact; onClicked: map.zoom(Math.min(map.span,map.maxSpan)*1.25) }
-                Control { text: "+"; visible: !win.compact; onClicked: map.zoom(Math.min(map.span,map.maxSpan)/1.25) }
-            }
           }
           LocationPicker {
             id: locationPicker
@@ -1324,7 +1191,7 @@ Item {
           }
           // The treatment menu over the surface (not a Popup, which the
           // window overlay would draw outside the captured surface): a card
-          // above the chip's right edge in the picker's row style, the
+          // in the map's bottom-right corner in the picker's row style, the
           // current and the hovered row in accent, each row's key at the
           // right. A click outside, Escape, a treatment key, or a choice
           // closes it; Up, Down, and Return choose from the keyboard.
@@ -1349,7 +1216,7 @@ Item {
             MouseArea { anchors.fill: parent; onClicked: treatmentMenu.close() }
             Rectangle {
                 id: treatmentCard
-                readonly property point anchor: treatmentMenu.opened ? treatmentChip.mapToItem(treatmentMenu, treatmentChip.width, 0) : Qt.point(0, 0)
+                readonly property point anchor: treatmentMenu.opened ? mapFrame.mapToItem(treatmentMenu, mapFrame.width - 8, mapFrame.height - 8) : Qt.point(0, 0)
                 x: Math.round(anchor.x - width)
                 y: Math.round(anchor.y - height - 6)
                 width: 168

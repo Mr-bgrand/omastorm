@@ -61,21 +61,6 @@ function alwaysOnFromConfig(values) {
     return ids;
 }
 
-function configError(values) {
-    if (!values) return "";
-    if (values["metar.show"] !== undefined && typeof values["metar.show"] !== "boolean")
-        return "metar.show must be true or false";
-    if (values["metar.pick"] !== undefined && !pickFromConfig(values))
-        return "metar.pick must be nearest or priority";
-    if (values["metar.count"] !== undefined && !countFromConfig(values))
-        return "metar.count must be 1 through 16";
-    if (values["metar.always_on_when_in_view"] !== undefined && alwaysOnFromConfig(values) === null)
-        return "metar.always_on_when_in_view must be quoted ICAO ids";
-    if (values["metar.mark"] !== undefined && !markFromConfig(values))
-        return "metar.mark must be chip, ink, or pin";
-    return "";
-}
-
 function available(state, site, source) {
     if (!state || state.mode !== "live") return false;
     if (!site || site.lat === undefined || site.lon === undefined) return false;
