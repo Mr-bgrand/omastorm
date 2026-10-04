@@ -292,9 +292,9 @@ fn parse_ifd(bytes: &[u8], off: usize) -> Result<Ifd, String> {
             TAG_IMAGE_WIDTH => width = read_u32(bytes, typ, count, value)?,
             TAG_IMAGE_LENGTH => height = read_u32(bytes, typ, count, value)?,
             TAG_BITS_PER_SAMPLE => bits = read_u16s(bytes, typ, count, value)?,
-            TAG_COMPRESSION => compression = read_u16s(bytes, typ, count, value)?[0],
-            TAG_SAMPLES_PER_PIXEL => samples = read_u16s(bytes, typ, count, value)?[0],
-            TAG_PLANAR_CONFIG => planar = read_u16s(bytes, typ, count, value)?[0],
+            TAG_COMPRESSION => compression = read_u16(bytes, typ, count, value)?,
+            TAG_SAMPLES_PER_PIXEL => samples = read_u16(bytes, typ, count, value)?,
+            TAG_PLANAR_CONFIG => planar = read_u16(bytes, typ, count, value)?,
             TAG_TILE_WIDTH => tile_width = read_u32(bytes, typ, count, value)?,
             TAG_TILE_LENGTH => tile_length = read_u32(bytes, typ, count, value)?,
             TAG_TILE_OFFSETS => tile_offsets = read_u32s(bytes, typ, count, value)?,
@@ -372,8 +372,18 @@ fn read_u16s(bytes: &[u8], typ: u16, count: u32, value: u32) -> Result<Vec<u16>,
         .collect())
 }
 
+fn read_u16(bytes: &[u8], typ: u16, count: u32, value: u32) -> Result<u16, String> {
+    read_u16s(bytes, typ, count, value)?
+        .first()
+        .copied()
+        .ok_or_else(|| "empty SHORT value".into())
+}
+
 fn read_u32(bytes: &[u8], typ: u16, count: u32, value: u32) -> Result<u32, String> {
-    Ok(read_u32s(bytes, typ, count, value)?[0])
+    read_u32s(bytes, typ, count, value)?
+        .first()
+        .copied()
+        .ok_or_else(|| "empty LONG value".into())
 }
 
 fn read_u32s(bytes: &[u8], typ: u16, count: u32, value: u32) -> Result<Vec<u32>, String> {
@@ -385,7 +395,7 @@ fn read_u32s(bytes: &[u8], typ: u16, count: u32, value: u32) -> Result<Vec<u32>,
         TYPE_LONG => {
             let size = 4 * count as usize;
             if size <= 4 {
-                return Ok(vec![value]);
+                return Ok(vec![value; count as usize]);
             }
             let start = value as usize;
             let end = start + size;
@@ -660,20 +670,19 @@ fn deflate(raw: &[u8]) -> Result<Vec<u8>, String> {
 mod tests {
     use super::*;
 
-    fn set_inline_ifd_value(bytes: &mut [u8], wanted_tag: u16, value: u32) {
+    fn ifd_entry(bytes: &mut [u8], wanted_tag: u16) -> &mut [u8; 12] {
         let ifd = u32::from_le_bytes(bytes[4..8].try_into().unwrap()) as usize;
         let entries = u16::from_le_bytes(bytes[ifd..ifd + 2].try_into().unwrap()) as usize;
-        for entry in bytes[ifd + 2..ifd + 2 + entries * 12]
+        bytes[ifd + 2..ifd + 2 + entries * 12]
             .as_chunks_mut::<12>()
             .0
-        {
-            let tag = u16::from_le_bytes(entry[..2].try_into().unwrap());
-            if tag == wanted_tag {
-                entry[8..12].copy_from_slice(&value.to_le_bytes());
-                return;
-            }
-        }
-        panic!("fixture has no tag {wanted_tag}");
+            .iter_mut()
+            .find(|entry| u16::from_le_bytes(entry[..2].try_into().unwrap()) == wanted_tag)
+            .unwrap_or_else(|| panic!("fixture has no tag {wanted_tag}"))
+    }
+
+    fn set_inline_ifd_value(bytes: &mut [u8], wanted_tag: u16, value: u32) {
+        ifd_entry(bytes, wanted_tag)[8..12].copy_from_slice(&value.to_le_bytes());
     }
 
     fn tiny_cog() -> Vec<u8> {
@@ -753,6 +762,17 @@ mod tests {
 
         let error = decode_float_cog(&bytes).unwrap_err();
         assert!(error.contains("inflated tile size"), "{error}");
+    }
+
+    #[test]
+    fn rejects_empty_scalar_tags_without_panicking() {
+        for tag in [TAG_COMPRESSION, TAG_IMAGE_WIDTH] {
+            let mut bytes = tiny_cog();
+            ifd_entry(&mut bytes, tag)[4..8].copy_from_slice(&0u32.to_le_bytes());
+
+            let error = decode_float_cog(&bytes).unwrap_err();
+            assert!(error.contains("empty"), "tag {tag}: {error}");
+        }
     }
 
     #[test]
