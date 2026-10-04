@@ -213,7 +213,7 @@ Item {
         function onKeysChanged() { app.applySettings(); }
         function onTreatmentChanged() { app.applySettings(); }
         function onWeakFloorChanged() { app.applySettings(); }
-        function onValuesChanged() { app.applySettings(); if (app.store.metarEnabled) app.requestMetars(); }
+        function onValuesChanged() { app.applySettings(); }
     }
     // The keyboard map (DESIGN.md, keyboard map as built): Keys.js lays the
     // `[keys]` table over the defaults, asking Qt whether each sequence
@@ -250,50 +250,12 @@ Item {
     property var focusToggle: null
     readonly property bool focusMode: focusToggle !== null ? focusToggle : configuredFocus
     onFocusSettingChanged: focusToggle = null
-    property var metars: []
-    property var selectedMetar: null
-    function toggleMetar() {
-        if (!Metar.available(state, engine.site, engine.source)) return;
-        store.metarEnabled = !store.metarEnabled;
-    }
-    function requestMetars() {
-        if (!Metar.shouldQuery(state, store.metarEnabled, engine.site, engine.source)) {
-            if (!store.metarEnabled) selectedMetar = null;
-            else { metars = []; selectedMetar = null; }
-            return;
-        }
-        engine.send(Metar.command(engine.site, map.viewBbox(), config.values));
-    }
-    onSiteIdChanged: { metars = []; selectedMetar = null; requestMetars(); }
-    Connections {
-        target: store
-        function onMetarEnabledChanged() {
-            if (!app.store.metarEnabled) { app.selectedMetar = null; return; }
-            if (app.metars.length) return;
-            app.requestMetars();
-        }
-    }
-    Connections {
-        target: engine
-        function onMetarsReady(message) { app.metars = message.results || []; }
-        function onStateChanged() {
-            if (!Metar.available(app.state, engine.site, engine.source)) {
-                app.metars = [];
-                app.selectedMetar = null;
-            }
-        }
-    }
-    Timer {
-        interval: 600000
-        repeat: true
-        running: store.metarEnabled && Metar.available(state, engine.site, engine.source)
-        onTriggered: app.requestMetars()
-    }
-    Timer {
-        interval: 60000
-        repeat: true
-        running: store.metarEnabled && Metar.available(state, engine.site, engine.source)
-        onTriggered: { if (new Date().getUTCMinutes() <= 1) app.requestMetars(); }
+    Metars {
+        id: metar
+        // `app.connection`: a bare `engine` here names this object's own property.
+        engine: app.connection
+        session: app.store
+        view: map
     }
     function run(action) {
         switch (action) {
@@ -315,10 +277,10 @@ Item {
         case "newest": jump(true); break;
         case "pixels": case "glyphs": case "stipple": treatment = action.toUpperCase(); treatmentMenu.close(); break;
         case "weak": weakFloor = weakFloor === null ? configuredFloor : null; break;
-        case "aviation": toggleMetar(); break;
+        case "aviation": metar.toggle(); break;
         case "focus": focusToggle = !focusMode; break;
         case "help": treatmentMenu.close(); if (sheet.open) sheet.close(); else sheet.show(); break;
-        case "close": if (app.selectedMetar) app.selectedMetar = null; else dismiss(); break;
+        case "close": if (metar.selected) metar.selected = null; else dismiss(); break;
         }
     }
     // Drives the keyboard map from outside for checks and captures:
@@ -438,7 +400,6 @@ Item {
         target: app.session
         function onTreatmentChanged() { app.treatment = app.session.treatment; }
         function onWeakFloorChanged() { app.weakFloor = app.session.weakFloor; }
-        function onLocationPickerRequested() { if (app.opened) locationPicker.show(""); }
     }
     // Quickshell keeps the process alive after its last window closes, which
     // left 400-600 MB orphans behind every close. Quit with the window; the
@@ -723,8 +684,8 @@ Item {
                     radarOpacity: app.condition === "unavailable" ? .6 : 1
                     labelSize: win.compact ? 10 : 12
                     locked: app.locked
-                    metarMode: app.store.metarEnabled && Metar.available(app.state, engine.site, engine.source) && app.metars.length > 0
-                    metars: app.metars
+                    metarMode: metar.shown
+                    metars: metar.metars
                     metarMark: Metar.markFromConfig(app.config.values) || "pin"
                     interactive: !app.store.needsLocation && !locationPicker.open
                     onNavigated: (lat, lon, spanKm) => app.store.userNavigated(lat, lon, spanKm)
@@ -741,19 +702,19 @@ Item {
                             return;
                         engine.send({type: "view_center", lat: lat, lon: lon});
                         app.store.rememberView(lat, lon, map.span);
-                        app.requestMetars();
+                        metar.request();
                     }
                     onResetRequested: app.resetView()
                     Component.onCompleted: app.applyView()
                     // The map asks for tiles when its camera settles and the
                     // engine answers this window alone, tile by tile.
                     onTilesNeeded: (z, x0, y0, x1, y1) => engine.send({type: "tiles_needed", z: z, x0: x0, y0: y0, x1: x1, y1: y1})
-                    onMetarPicked: report => app.selectedMetar = report
+                    onMetarPicked: report => metar.selected = report
                 }
                 Connections { target: engine; function onTileReady(tile) { map.tileReady(tile); } }
                 Rectangle {
                     id: metarCard
-                    visible: !!app.selectedMetar
+                    visible: !!metar.selected
                     // Bottom-right, 80% of the map, sitting above the OSM
                     // credit so the scale bar and attribution stay clear.
                     anchors.right: parent.right
@@ -778,11 +739,11 @@ Item {
                             Rectangle {
                                 width: 10; height: 10; radius: 5
                                 anchors.verticalCenter: parent.verticalCenter
-                                color: Metar.color(app.selectedMetar ? app.selectedMetar.category : "") || app.theme.foreground
+                                color: Metar.color(metar.selected ? metar.selected.category : "") || app.theme.foreground
                             }
                             LabelText {
-                                text: (app.selectedMetar ? app.selectedMetar.name || app.selectedMetar.id : "")
-                                    + (Metar.label(app.selectedMetar ? app.selectedMetar.category : "") ? "  " + Metar.label(app.selectedMetar.category) : "")
+                                text: (metar.selected ? metar.selected.name || metar.selected.id : "")
+                                    + (Metar.label(metar.selected ? metar.selected.category : "") ? "  " + Metar.label(metar.selected.category) : "")
                                 font.bold: true
                             }
                             Item { width: 8; height: 1 }
@@ -796,7 +757,7 @@ Item {
                             width: metarCard.width - 16
                             wrapMode: Text.Wrap
                             font.family: "monospace"
-                            text: app.selectedMetar ? app.selectedMetar.raw : ""
+                            text: metar.selected ? metar.selected.raw : ""
                         }
                     }
                 }

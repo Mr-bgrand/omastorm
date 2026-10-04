@@ -11,7 +11,6 @@ set -euo pipefail
 source "$(dirname "$0")/common.sh"
 cd "$(dirname "$0")/../.."
 
-fail() { printf '%s\n' "$@" >&2; exit 1; }
 die() { fail "$@"; }
 source scripts/engine-pin.sh
 [[ -x "${OMASTORM_ENGINE_BINARY:?selected by mise test integration}" ]] || fail "Selected engine is not executable: $OMASTORM_ENGINE_BINARY"

@@ -12,9 +12,7 @@ stage_ui "$check_dir/ui"
 cp tests/harnesses/location.qml "$check_dir/ui/shell.qml"
 printf '{\n  "name": "Stokesdale",\n  "latitude": 36.23708,\n  "longitude": -79.97948\n}\n' > "$check_dir/weather.json"
 : > "$check_dir/none.toml"
-export QT_QPA_PLATFORM=offscreen QT_QPA_PLATFORMTHEME=basic QT_QUICK_BACKEND=rhi QSG_RHI_BACKEND=opengl
-fail() { printf '%s\n' "$@" >&2; [[ -f $check_dir/log ]] && cat "$check_dir/log" >&2; exit 1; }
-expect() { [[ "$3" == "$2" ]] || fail "$1" "Expected: $2" "Actual:   $3"; }
+fail_log="$check_dir/log"
 start() { # config, location, state
   local config=$1 location=$2 state=$3
   OMASTORM_QML="$check_dir/ui/shell.qml" \
@@ -210,5 +208,5 @@ for _ in {1..50}; do e=$(call errors); [[ $e == *center_lat* ]] && break; sleep 
 [[ $e == *follow* ]] || fail "follow was not reported unused: $e"
 stop
 
-if rg -q 'TypeError|ReferenceError|Unable to assign|Failed to create.*context|is not a function' "$check_dir/log"; then fail "QML errors in the log"; fi
+check_qml_log "$check_dir/log"
 echo "LOCATION_PASSED"

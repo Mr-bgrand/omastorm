@@ -44,51 +44,13 @@ FocusScope {
     // settling after open made the panel shrink and grow.
     implicitHeight: 372
     Engine { id: connection }
-    property var metars: []
-    property var selectedMetar: null
     function step(delta) { if (state) connection.send({type: "step", delta: delta}); }
     function play() { if (state) connection.send({type: state.playing ? "pause" : "play"}); }
-    function toggleMetar() {
-        if (!Metar.available(state, connection.site, connection.source)) return;
-        session.metarEnabled = !session.metarEnabled;
-    }
-    function requestMetars() {
-        if (!Metar.shouldQuery(state, session.metarEnabled, connection.site, connection.source)) {
-            if (!session.metarEnabled) selectedMetar = null;
-            else { metars = []; selectedMetar = null; }
-            return;
-        }
-        connection.send(Metar.command(connection.site, map.viewBbox(), session.config.values));
-    }
-    readonly property string siteId: connection.selectedSiteId
-    onSiteIdChanged: { metars = []; selectedMetar = null; requestMetars(); }
-    onStateChanged: {
-        if (!Metar.available(state, connection.site, connection.source)) {
-            metars = [];
-            selectedMetar = null;
-        }
-    }
-    Connections {
-        target: session
-        function onMetarEnabledChanged() {
-            if (!card.session.metarEnabled) { card.selectedMetar = null; return; }
-            if (card.metars.length) return;
-            card.requestMetars();
-        }
-    }
-    Connections {
-        target: card.session.config
-        function onValuesChanged() { if (card.session.metarEnabled) card.requestMetars(); }
-    }
-    Connections {
-        target: connection
-        function onMetarsReady(message) { card.metars = message.results || []; }
-    }
-    Timer {
-        interval: 600000
-        repeat: true
-        running: session.metarEnabled && Metar.available(state, connection.site, connection.source)
-        onTriggered: card.requestMetars()
+    Metars {
+        id: metar
+        engine: connection
+        session: card.session
+        view: map
     }
     // Respect the same config keys as the window; Enter always expands.
     Shortcut { id: probe; enabled: false }
@@ -105,10 +67,10 @@ FocusScope {
             enabled: card.visible
             onActivated: {
                 if (modelData === "close") {
-                    if (card.selectedMetar) card.selectedMetar = null;
+                    if (metar.selected) metar.selected = null;
                     else card.closeRequested();
                 } else if (modelData === "play") card.play();
-                else if (modelData === "aviation") card.toggleMetar();
+                else if (modelData === "aviation") metar.toggle();
                 else card.step(modelData === "previous_frame" ? -1 : 1);
             }
         }
@@ -173,8 +135,8 @@ FocusScope {
                     : (connection.source && connection.source.coverage ? connection.source.coverage : null)
                 tileRoot: "file://" + connection.runtime
                 theme: card.theme
-                metarMode: card.session.metarEnabled && Metar.available(card.state, connection.site, connection.source) && card.metars.length > 0
-                metars: card.metars
+                metarMode: metar.shown
+                metars: metar.metars
                 metarMark: Metar.markFromConfig(card.session.config.values) || "pin"
                 treatment: card.session.treatment
                 weakFloor: card.session.weakFloor
@@ -182,7 +144,7 @@ FocusScope {
                 radarOpacity: card.condition === "unavailable" ? .6 : 1
                 // The expand overlay above takes every click and wheel.
                 interactive: false
-                onViewSettled: (lat, lon) => card.requestMetars()
+                onViewSettled: (lat, lon) => metar.request()
                 onTilesNeeded: (z, x0, y0, x1, y1) => connection.send({type: "tiles_needed", z: z, x0: x0, y0: y0, x1: x1, y1: y1})
                 function applyView() {
                     if (!card.session.hasView) return;
@@ -195,7 +157,7 @@ FocusScope {
             }
             Connections { target: connection; function onTileReady(tile) { map.tileReady(tile); } }
             Rectangle {
-                visible: !!card.selectedMetar
+                visible: !!metar.selected
                 anchors.right: parent.right
                 anchors.bottom: parent.bottom
                 anchors.rightMargin: 8
@@ -214,7 +176,7 @@ FocusScope {
                     wrapMode: Text.Wrap
                     font.family: "monospace"
                     font.pixelSize: 10
-                    text: card.selectedMetar ? card.selectedMetar.raw : ""
+                    text: metar.selected ? metar.selected.raw : ""
                 }
             }
             Connections {
@@ -254,7 +216,7 @@ FocusScope {
                 cursorShape: Qt.PointingHandCursor
                 onClicked: mouse => {
                     var report = map.metarAt(mouse.x, mouse.y);
-                    if (report) card.selectedMetar = card.selectedMetar === report ? null : report;
+                    if (report) metar.selected = metar.selected === report ? null : report;
                     else card.expandRequested();
                 }
                 onWheel: wheel => { wheel.accepted = true }

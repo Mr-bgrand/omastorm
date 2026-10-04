@@ -71,10 +71,6 @@ function available(state, site, source) {
     return true;
 }
 
-function shouldQuery(state, enabled, site, source) {
-    return !!(enabled && available(state, site, source));
-}
-
 function command(site, bbox, values) {
     var cmd = { type: "metar_query", lat: site.lat, lon: site.lon };
     var pick = pickFromConfig(values) || "nearest";
