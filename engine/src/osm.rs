@@ -8,6 +8,7 @@
 //! and the URL template, then fetches tiles. Fetching that fails backs off
 //! for 30 s, during which tiles are answered from the cache or as `ne`.
 
+use crate::live_index;
 use crate::protocol::{Label, Osm as Info, OsmStatus};
 use crate::tiles::{self, BOUNDARY_WIDTH, COAST_WIDTH, SIZE, Strokes, TileKey};
 use geo_types::{Geometry, LineString};
@@ -219,7 +220,7 @@ impl Osm {
     /// 204 or 404 (an empty tile), otherwise the failure in words.
     async fn get(&self, url: &str) -> Result<Vec<u8>, String> {
         let _permit = self.permits.acquire().await.map_err(|e| e.to_string())?;
-        let mut response = self
+        let response = self
             .client
             .get(url)
             .send()
@@ -232,23 +233,7 @@ impl Osm {
         if !status.is_success() {
             return Err(format!("HTTP {status}"));
         }
-        if response
-            .content_length()
-            .is_some_and(|n| n > MAX_BODY as u64)
-        {
-            return Err("body over the size limit".into());
-        }
-        // Content-Length may be absent (chunked or close-delimited bodies).
-        // Enforce the cap while receiving, before retaining each chunk, rather
-        // than buffering the entire response and only checking after EOF.
-        let mut bytes = Vec::new();
-        while let Some(chunk) = response.chunk().await.map_err(|e| e.to_string())? {
-            if chunk.len() > MAX_BODY - bytes.len() {
-                return Err("body over the size limit".into());
-            }
-            bytes.extend_from_slice(&chunk);
-        }
-        Ok(bytes)
+        live_index::take_body(response, MAX_BODY).await
     }
     /// The data version and URL template, reading TileJSON on the first call
     /// of a daemon's life. `None` while offline.

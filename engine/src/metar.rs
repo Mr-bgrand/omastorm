@@ -16,7 +16,7 @@
 //! `OMASTORM_STATIONS_URL` / `OMASTORM_STATIONS_FIXTURE` override the live
 //! feeds for checks (no network).
 
-use crate::protocol::MetarReport;
+use crate::{live_index, protocol::MetarReport};
 use chrono::{DateTime, SecondsFormat, Utc};
 use serde::Deserialize;
 use std::{
@@ -84,10 +84,8 @@ pub struct Service {
     fixture: Option<PathBuf>,
     stations_fixture: Option<PathBuf>,
     permits: Semaphore,
-    feeds: Mutex<HashMap<BoxKey, CachedFeed>>,
-    stations: Mutex<HashMap<BoxKey, CachedStations>>,
-    metar_flights: Flights<Vec<MetarReport>>,
-    station_flights: Flights<HashMap<String, u8>>,
+    feeds: BoxCache<Vec<MetarReport>>,
+    stations: BoxCache<HashMap<String, u8>>,
     back_off_until: Mutex<Option<Instant>>,
 }
 
@@ -104,18 +102,58 @@ struct BoxKey {
     bucket: i64,
 }
 
-struct CachedFeed {
-    at: Instant,
-    radar: (i32, i32),
-    box_: BBox,
-    reports: Vec<MetarReport>,
+/// Fetched values by box, fresh for `ttl`, with one in-flight fetch per key.
+struct BoxCache<T> {
+    ttl: Duration,
+    entries: Mutex<HashMap<BoxKey, Cached<T>>>,
+    flights: Flights<T>,
 }
 
-struct CachedStations {
+struct Cached<T> {
     at: Instant,
     radar: (i32, i32),
     box_: BBox,
-    by_id: HashMap<String, u8>,
+    value: T,
+}
+
+impl<T: Clone> BoxCache<T> {
+    fn new(ttl: Duration) -> Self {
+        BoxCache {
+            ttl,
+            entries: Mutex::new(HashMap::new()),
+            flights: Mutex::new(HashMap::new()),
+        }
+    }
+
+    fn get(&self, q: &Query, same_radar: bool) -> Option<T> {
+        let radar = (tenths(q.lat), tenths(q.lon));
+        let want = feed_box(q);
+        let entries = self.entries.lock().unwrap();
+        entries
+            .values()
+            .filter(|entry| entry.at.elapsed() < self.ttl)
+            .filter(|entry| box_contains(entry.box_, want) || (same_radar && entry.radar == radar))
+            .max_by_key(|entry| entry.at)
+            .map(|entry| entry.value.clone())
+    }
+
+    fn store(&self, key: BoxKey, q: &Query, value: T) {
+        let mut entries = self.entries.lock().unwrap();
+        entries.insert(
+            key,
+            Cached {
+                at: Instant::now(),
+                radar: (tenths(q.lat), tenths(q.lon)),
+                box_: fetch_box(q),
+                value,
+            },
+        );
+        prune_map(
+            &mut entries,
+            |entry| entry.at.elapsed() < self.ttl,
+            |entry| entry.at,
+        );
+    }
 }
 
 /// Tells every waiter for one in-flight fetch, including when the leader is dropped.
@@ -288,10 +326,8 @@ impl Service {
             fixture,
             stations_fixture,
             permits: Semaphore::new(IN_FLIGHT),
-            feeds: Mutex::new(HashMap::new()),
-            stations: Mutex::new(HashMap::new()),
-            metar_flights: Mutex::new(HashMap::new()),
-            station_flights: Mutex::new(HashMap::new()),
+            feeds: BoxCache::new(TTL),
+            stations: BoxCache::new(STATIONS_TTL),
             back_off_until: Mutex::new(None),
         })
     }
@@ -311,7 +347,7 @@ impl Service {
                 Ok(priorities) => priorities,
                 // A cached observation still paints chips; missing ranks
                 // fall back to distance.
-                Err(_) => self.cached_stations_for(&q, true).unwrap_or_default(),
+                Err(_) => self.stations.get(&q, true).unwrap_or_default(),
             }
         } else {
             HashMap::new()
@@ -322,64 +358,53 @@ impl Service {
     /// Parsed observations for this selection. A cached feed covering this box
     /// within ten minutes does not start another request.
     async fn metar_feed(&self, q: &Query) -> Result<Vec<MetarReport>, String> {
-        if let Some(hit) = self.cached_feed_for(q, false) {
-            return Ok(hit);
-        }
         let box_ = fetch_box(q);
-        let key = BoxKey::hour(box_);
-        if self.fixture.is_none() && self.backing_off() {
-            return self
-                .cached_feed_for(q, true)
-                .ok_or_else(|| "backing off after a METAR fetch failure".into());
-        }
-        let follower = {
-            let mut flights = self.metar_flights.lock().unwrap();
-            if let Some(hit) = self.cached_feed_for(q, false) {
-                return Ok(hit);
-            }
-            match flights.entry(key) {
-                std::collections::hash_map::Entry::Occupied(mut entry) => {
-                    let (tx, rx) = oneshot::channel();
-                    entry.get_mut().push(tx);
-                    Some(rx)
-                }
-                std::collections::hash_map::Entry::Vacant(entry) => {
-                    entry.insert(Vec::new());
-                    None
-                }
-            }
-        };
-        if let Some(rx) = follower {
-            return rx
-                .await
-                .unwrap_or_else(|_| Err("METAR fetch failed".into()));
-        }
-        let mut done = Done {
-            flights: &self.metar_flights,
-            key,
-            result: None,
-        };
-        let result = self.fetch_metars(box_).await;
-        done.result = Some(result.clone());
-        if let Ok(ref reports) = result {
-            self.store_feed(key, q, reports.clone());
-        }
-        drop(done);
-        result
+        let live = self.fixture.is_none();
+        self.single_flight(
+            &self.feeds,
+            q,
+            BoxKey::hour(box_),
+            live,
+            self.fetch_metars(box_),
+        )
+        .await
     }
 
     async fn station_priorities(&self, q: &Query) -> Result<HashMap<String, u8>, String> {
-        if let Some(hit) = self.cached_stations_for(q, false) {
+        let box_ = fetch_box(q);
+        let live = self.stations_fixture.is_none();
+        self.single_flight(
+            &self.stations,
+            q,
+            BoxKey::day(box_),
+            live,
+            self.fetch_stations(box_),
+        )
+        .await
+    }
+
+    /// A cached box covering `q`, else one `fetch` per key that concurrent
+    /// callers wait on instead of repeating. While backing off, a live source
+    /// falls back to whatever this radar cached last.
+    async fn single_flight<T: Clone>(
+        &self,
+        cache: &BoxCache<T>,
+        q: &Query,
+        key: BoxKey,
+        live: bool,
+        fetch: impl std::future::Future<Output = Result<T, String>>,
+    ) -> Result<T, String> {
+        if let Some(hit) = cache.get(q, false) {
             return Ok(hit);
         }
-        let box_ = fetch_box(q);
-        let key = BoxKey::day(box_);
-        if self.stations_fixture.is_none() && self.backing_off() {
-            return Err("backing off after a METAR fetch failure".into());
+        if live && self.backing_off() {
+            return cache
+                .get(q, true)
+                .ok_or_else(|| "backing off after a METAR fetch failure".into());
         }
         let follower = {
-            let mut flights = self.station_flights.lock().unwrap();
-            if let Some(hit) = self.cached_stations_for(q, false) {
+            let mut flights = cache.flights.lock().unwrap();
+            if let Some(hit) = cache.get(q, false) {
                 return Ok(hit);
             }
             match flights.entry(key) {
@@ -400,77 +425,17 @@ impl Service {
                 .unwrap_or_else(|_| Err("METAR fetch failed".into()));
         }
         let mut done = Done {
-            flights: &self.station_flights,
+            flights: &cache.flights,
             key,
             result: None,
         };
-        let result = self.fetch_stations(box_).await;
+        let result = fetch.await;
         done.result = Some(result.clone());
-        if let Ok(ref by_id) = result {
-            self.store_stations(key, q, by_id.clone());
+        if let Ok(ref value) = result {
+            cache.store(key, q, value.clone());
         }
         drop(done);
         result
-    }
-
-    fn cached_feed_for(&self, q: &Query, same_radar: bool) -> Option<Vec<MetarReport>> {
-        let radar = (tenths(q.lat), tenths(q.lon));
-        let want = feed_box(q);
-        let cache = self.feeds.lock().unwrap();
-        cache
-            .values()
-            .filter(|entry| entry.at.elapsed() < TTL)
-            .filter(|entry| box_contains(entry.box_, want) || (same_radar && entry.radar == radar))
-            .max_by_key(|entry| entry.at)
-            .map(|entry| entry.reports.clone())
-    }
-
-    fn store_feed(&self, key: BoxKey, q: &Query, reports: Vec<MetarReport>) {
-        let mut cache = self.feeds.lock().unwrap();
-        cache.insert(
-            key,
-            CachedFeed {
-                at: Instant::now(),
-                radar: (tenths(q.lat), tenths(q.lon)),
-                box_: fetch_box(q),
-                reports,
-            },
-        );
-        prune_map(
-            &mut cache,
-            |entry| entry.at.elapsed() < TTL,
-            |entry| entry.at,
-        );
-    }
-
-    fn cached_stations_for(&self, q: &Query, same_radar: bool) -> Option<HashMap<String, u8>> {
-        let radar = (tenths(q.lat), tenths(q.lon));
-        let want = feed_box(q);
-        let cache = self.stations.lock().unwrap();
-        cache
-            .values()
-            .filter(|entry| entry.at.elapsed() < STATIONS_TTL)
-            .filter(|entry| box_contains(entry.box_, want) || (same_radar && entry.radar == radar))
-            .max_by_key(|entry| entry.at)
-            .map(|entry| entry.by_id.clone())
-    }
-
-    fn store_stations(&self, key: BoxKey, q: &Query, by_id: HashMap<String, u8>) {
-        let mut cache = self.stations.lock().unwrap();
-        cache.insert(
-            key,
-            CachedStations {
-                at: Instant::now(),
-                radar: (tenths(q.lat), tenths(q.lon)),
-                box_: fetch_box(q),
-                by_id,
-            },
-        );
-        prune_map(
-            &mut cache,
-            |entry| entry.at.elapsed() < STATIONS_TTL,
-            |entry| entry.at,
-        );
     }
 
     fn backing_off(&self) -> bool {
@@ -513,7 +478,7 @@ impl Service {
         };
         match disposition(response.status()) {
             Ok(BodyPlan::Empty) => Ok(Vec::new()),
-            Ok(BodyPlan::Read) => take_body(response).await,
+            Ok(BodyPlan::Read) => live_index::take_body(response, MAX_BODY).await,
             Err(Failure::Backoff(message)) => {
                 self.note_failure();
                 Err(message)
@@ -545,23 +510,6 @@ fn disposition(status: reqwest::StatusCode) -> Result<BodyPlan, Failure> {
         return Err(Failure::Failed(format!("HTTP {status}")));
     }
     Ok(BodyPlan::Read)
-}
-
-async fn take_body(mut response: reqwest::Response) -> Result<Vec<u8>, String> {
-    if response
-        .content_length()
-        .is_some_and(|n| n > MAX_BODY as u64)
-    {
-        return Err("body over the size limit".into());
-    }
-    let mut bytes = Vec::new();
-    while let Some(chunk) = response.chunk().await.map_err(|e| e.to_string())? {
-        if chunk.len() > MAX_BODY - bytes.len() {
-            return Err("body over the size limit".into());
-        }
-        bytes.extend_from_slice(&chunk);
-    }
-    Ok(bytes)
 }
 
 fn prune_map<V>(

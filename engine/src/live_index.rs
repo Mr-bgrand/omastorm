@@ -112,7 +112,7 @@ async fn take_prefix(
     Ok(bytes)
 }
 
-async fn listing_text(
+pub(crate) async fn listing_text(
     url: &str,
     send_what: &str,
     read_what: &str,
