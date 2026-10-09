@@ -1,0 +1,1312 @@
+{
+  "source": "https://www.ncei.noaa.gov/access/homr/file/nexrad-stations.txt",
+  "layout": "https://www.ncei.noaa.gov/access/homr/file/NexRad_Table.txt",
+  "retrieved": "2026-09-05",
+  "notes": "All NEXRAD rows, including archived/test stations; TDWR excluded. No live availability implied. altM converts source feet (ground + tower + feed horn) by 0.3048. Empty state retained for overseas sites. Fixture geometry comes from its own Level II metadata.",
+  "sites": [
+    {
+      "id": "KABR",
+      "name": "ABERDEEN",
+      "state": "SD",
+      "lat": 45.455833,
+      "lon": -98.413333,
+      "altM": 421.5384
+    },
+    {
+      "id": "KABX",
+      "name": "ALBUQUERQUE",
+      "state": "NM",
+      "lat": 35.149722,
+      "lon": -106.82388,
+      "altM": 1813.8648
+    },
+    {
+      "id": "KAKQ",
+      "name": "NORFOLK RICH",
+      "state": "VA",
+      "lat": 36.98405,
+      "lon": -77.007361,
+      "altM": 77.7240
+    },
+    {
+      "id": "KAMA",
+      "name": "AMARILLO",
+      "state": "TX",
+      "lat": 35.233333,
+      "lon": -101.70927,
+      "altM": 1128.6744
+    },
+    {
+      "id": "KAMX",
+      "name": "MIAMI",
+      "state": "FL",
+      "lat": 25.611083,
+      "lon": -80.412667,
+      "altM": 33.8328
+    },
+    {
+      "id": "KAPX",
+      "name": "GAYLORD",
+      "state": "MI",
+      "lat": 44.90635,
+      "lon": -84.719533,
+      "altM": 475.7928
+    },
+    {
+      "id": "KARX",
+      "name": "LA CROSSE",
+      "state": "WI",
+      "lat": 43.822778,
+      "lon": -91.191111,
+      "altM": 413.6136
+    },
+    {
+      "id": "KATX",
+      "name": "SEATTLE",
+      "state": "WA",
+      "lat": 48.194611,
+      "lon": -122.49569,
+      "altM": 195.6816
+    },
+    {
+      "id": "KBBX",
+      "name": "BEALE AFB",
+      "state": "CA",
+      "lat": 39.495639,
+      "lon": -121.63161,
+      "altM": 67.3608
+    },
+    {
+      "id": "KBGM",
+      "name": "BINGHAMTON",
+      "state": "NY",
+      "lat": 42.199694,
+      "lon": -75.984722,
+      "altM": 519.0744
+    },
+    {
+      "id": "KBHX",
+      "name": "EUREKA",
+      "state": "CA",
+      "lat": 40.498583,
+      "lon": -124.29216,
+      "altM": 766.8768
+    },
+    {
+      "id": "KBIS",
+      "name": "BISMARCK",
+      "state": "ND",
+      "lat": 46.770833,
+      "lon": -100.76055,
+      "altM": 534.9240
+    },
+    {
+      "id": "KBLX",
+      "name": "BILLINGS",
+      "state": "MT",
+      "lat": 45.853778,
+      "lon": -108.60680,
+      "altM": 1128.6744
+    },
+    {
+      "id": "KBMX",
+      "name": "BIRMINGHAM",
+      "state": "AL",
+      "lat": 33.172417,
+      "lon": -86.770167,
+      "altM": 231.3432
+    },
+    {
+      "id": "KBOX",
+      "name": "BOSTON",
+      "state": "MA",
+      "lat": 41.955778,
+      "lon": -71.136861,
+      "altM": 70.7136
+    },
+    {
+      "id": "KBRO",
+      "name": "BROWNSVILLE",
+      "state": "TX",
+      "lat": 25.916,
+      "lon": -97.418967,
+      "altM": 26.8224
+    },
+    {
+      "id": "KBUF",
+      "name": "BUFFALO",
+      "state": "NY",
+      "lat": 42.948789,
+      "lon": -78.736781,
+      "altM": 240.7920
+    },
+    {
+      "id": "KBYX",
+      "name": "KEY WEST",
+      "state": "FL",
+      "lat": 24.5975,
+      "lon": -81.703167,
+      "altM": 27.1272
+    },
+    {
+      "id": "KCAE",
+      "name": "COLUMBIA",
+      "state": "SC",
+      "lat": 33.948722,
+      "lon": -81.118278,
+      "altM": 105.1560
+    },
+    {
+      "id": "KCBW",
+      "name": "HOULTON",
+      "state": "ME",
+      "lat": 46.03925,
+      "lon": -67.806431,
+      "altM": 262.1280
+    },
+    {
+      "id": "KCBX",
+      "name": "BOISE",
+      "state": "ID",
+      "lat": 43.490217,
+      "lon": -116.23603,
+      "altM": 966.8256
+    },
+    {
+      "id": "KCCX",
+      "name": "STATE COLLEGE",
+      "state": "PA",
+      "lat": 40.923167,
+      "lon": -78.003722,
+      "altM": 757.7328
+    },
+    {
+      "id": "KCLE",
+      "name": "CLEVELAND",
+      "state": "OH",
+      "lat": 41.413217,
+      "lon": -81.859867,
+      "altM": 262.1280
+    },
+    {
+      "id": "KCLX",
+      "name": "CHARLESTON",
+      "state": "SC",
+      "lat": 32.655528,
+      "lon": -81.042194,
+      "altM": 69.7992
+    },
+    {
+      "id": "KCRI",
+      "name": "ROC FAA REDUNDANT RDA 1",
+      "state": "OK",
+      "lat": 35.238333,
+      "lon": -97.46,
+      "altM": 400.8120
+    },
+    {
+      "id": "KCRP",
+      "name": "CORPUS CHRISTI",
+      "state": "TX",
+      "lat": 27.784017,
+      "lon": -97.51125,
+      "altM": 43.2816
+    },
+    {
+      "id": "KCXX",
+      "name": "BURLINGTON",
+      "state": "VT",
+      "lat": 44.511,
+      "lon": -73.166431,
+      "altM": 131.3688
+    },
+    {
+      "id": "KCYS",
+      "name": "CHEYENNE",
+      "state": "WY",
+      "lat": 41.151919,
+      "lon": -104.80603,
+      "altM": 1887.6264
+    },
+    {
+      "id": "KDAX",
+      "name": "SACRAMENTO",
+      "state": "CA",
+      "lat": 38.501111,
+      "lon": -121.67783,
+      "altM": 43.8912
+    },
+    {
+      "id": "KDDC",
+      "name": "DODGE CITY",
+      "state": "KS",
+      "lat": 37.760833,
+      "lon": -99.968889,
+      "altM": 814.1208
+    },
+    {
+      "id": "KDFX",
+      "name": "LAUGHLIN AFB",
+      "state": "TX",
+      "lat": 29.273139,
+      "lon": -100.28033,
+      "altM": 364.5408
+    },
+    {
+      "id": "KDGX",
+      "name": "JACKSON BRANDON",
+      "state": "MS",
+      "lat": 32.279944,
+      "lon": -89.984444,
+      "altM": 185.6232
+    },
+    {
+      "id": "KDIX",
+      "name": "PHILADELPHIA",
+      "state": "NJ",
+      "lat": 39.947089,
+      "lon": -74.410731,
+      "altM": 70.1040
+    },
+    {
+      "id": "KDLH",
+      "name": "DULUTH",
+      "state": "MN",
+      "lat": 46.836944,
+      "lon": -92.209722,
+      "altM": 470.0016
+    },
+    {
+      "id": "KDMX",
+      "name": "DES MOINES",
+      "state": "IA",
+      "lat": 41.7312,
+      "lon": -93.722869,
+      "altM": 333.7560
+    },
+    {
+      "id": "KDOX",
+      "name": "DOVER AFB",
+      "state": "DE",
+      "lat": 38.825767,
+      "lon": -75.440117,
+      "altM": 49.9872
+    },
+    {
+      "id": "KDTX",
+      "name": "DETROIT",
+      "state": "MI",
+      "lat": 42.7,
+      "lon": -83.471667,
+      "altM": 370.6368
+    },
+    {
+      "id": "KDVN",
+      "name": "DAVENPORT",
+      "state": "IA",
+      "lat": 41.611667,
+      "lon": -90.580833,
+      "altM": 259.3848
+    },
+    {
+      "id": "KDYX",
+      "name": "DYESS AFB",
+      "state": "TX",
+      "lat": 32.5385,
+      "lon": -99.254333,
+      "altM": 482.1936
+    },
+    {
+      "id": "KEAX",
+      "name": "KANSAS CITY",
+      "state": "MO",
+      "lat": 38.81025,
+      "lon": -94.264472,
+      "altM": 332.8416
+    },
+    {
+      "id": "KEMX",
+      "name": "TUCSON",
+      "state": "AZ",
+      "lat": 31.89365,
+      "lon": -110.63025,
+      "altM": 1621.2312
+    },
+    {
+      "id": "KENX",
+      "name": "ALBANY",
+      "state": "NY",
+      "lat": 42.586556,
+      "lon": -74.064083,
+      "altM": 589.7880
+    },
+    {
+      "id": "KEOX",
+      "name": "FORT RUCKER",
+      "state": "AL",
+      "lat": 31.460556,
+      "lon": -85.459389,
+      "altM": 163.6776
+    },
+    {
+      "id": "KEPZ",
+      "name": "EL PASO",
+      "state": "NM",
+      "lat": 31.873056,
+      "lon": -106.698,
+      "altM": 1285.6464
+    },
+    {
+      "id": "KESX",
+      "name": "LAS VEGAS",
+      "state": "NV",
+      "lat": 35.70135,
+      "lon": -114.89165,
+      "altM": 1508.1504
+    },
+    {
+      "id": "KEVX",
+      "name": "EGLIN AFB",
+      "state": "FL",
+      "lat": 30.565033,
+      "lon": -85.921667,
+      "altM": 67.3608
+    },
+    {
+      "id": "KEWX",
+      "name": "AUSTIN SAN ANTONIO",
+      "state": "TX",
+      "lat": 29.704056,
+      "lon": -98.028611,
+      "altM": 233.7816
+    },
+    {
+      "id": "KEYX",
+      "name": "EDWARDS",
+      "state": "CA",
+      "lat": 35.09785,
+      "lon": -117.56075,
+      "altM": 875.6904
+    },
+    {
+      "id": "KFCX",
+      "name": "ROANOKE",
+      "state": "VA",
+      "lat": 37.0244,
+      "lon": -80.273969,
+      "altM": 903.7320
+    },
+    {
+      "id": "KFDR",
+      "name": "ALTUS AFB",
+      "state": "OK",
+      "lat": 34.362194,
+      "lon": -98.976667,
+      "altM": 400.8120
+    },
+    {
+      "id": "KFDX",
+      "name": "CANNON AFB",
+      "state": "NM",
+      "lat": 34.634167,
+      "lon": -103.61888,
+      "altM": 1431.9504
+    },
+    {
+      "id": "KFFC",
+      "name": "ATLANTA",
+      "state": "GA",
+      "lat": 33.36355,
+      "lon": -84.56595,
+      "altM": 296.2656
+    },
+    {
+      "id": "KFSD",
+      "name": "SIOUX FALLS",
+      "state": "SD",
+      "lat": 43.587778,
+      "lon": -96.729444,
+      "altM": 455.6760
+    },
+    {
+      "id": "KFSX",
+      "name": "FLAGSTAFF",
+      "state": "AZ",
+      "lat": 34.574333,
+      "lon": -111.19844,
+      "altM": 2290.2672
+    },
+    {
+      "id": "KFTG",
+      "name": "DENVER FRONT RANGE AP",
+      "state": "CO",
+      "lat": 39.786639,
+      "lon": -104.54580,
+      "altM": 1710.2328
+    },
+    {
+      "id": "KFWS",
+      "name": "DALLAS",
+      "state": "TX",
+      "lat": 32.573,
+      "lon": -97.30315,
+      "altM": 236.8296
+    },
+    {
+      "id": "KGGW",
+      "name": "GLASGOW",
+      "state": "MT",
+      "lat": 48.206361,
+      "lon": -106.62469,
+      "altM": 726.6432
+    },
+    {
+      "id": "KGJX",
+      "name": "GRAND JUNCTION",
+      "state": "CO",
+      "lat": 39.062169,
+      "lon": -108.21376,
+      "altM": 3078.7848
+    },
+    {
+      "id": "KGLD",
+      "name": "GOODLAND",
+      "state": "KS",
+      "lat": 39.366944,
+      "lon": -101.70027,
+      "altM": 1132.6368
+    },
+    {
+      "id": "KGRB",
+      "name": "GREEN BAY",
+      "state": "WI",
+      "lat": 44.498633,
+      "lon": -88.111111,
+      "altM": 250.8504
+    },
+    {
+      "id": "KGRK",
+      "name": "FORT HOOD",
+      "state": "TX",
+      "lat": 30.721833,
+      "lon": -97.382944,
+      "altM": 183.7944
+    },
+    {
+      "id": "KGRR",
+      "name": "GRAND RAPIDS",
+      "state": "MI",
+      "lat": 42.893889,
+      "lon": -85.544889,
+      "altM": 266.7000
+    },
+    {
+      "id": "KGSP",
+      "name": "GREER",
+      "state": "SC",
+      "lat": 34.883306,
+      "lon": -82.219833,
+      "altM": 325.8312
+    },
+    {
+      "id": "KGWX",
+      "name": "COLUMBUS AFB",
+      "state": "MS",
+      "lat": 33.896917,
+      "lon": -88.329194,
+      "altM": 179.8320
+    },
+    {
+      "id": "KGYX",
+      "name": "PORTLAND",
+      "state": "ME",
+      "lat": 43.891306,
+      "lon": -70.256361,
+      "altM": 144.4752
+    },
+    {
+      "id": "KHDC",
+      "name": "HAMMOND MUNICIPAL AIRPORT",
+      "state": "LA",
+      "lat": 30.5193,
+      "lon": -90.4074,
+      "altM": 13.1064
+    },
+    {
+      "id": "KHDX",
+      "name": "HOLLOMAN AFB",
+      "state": "NM",
+      "lat": 33.077,
+      "lon": -106.12003,
+      "altM": 1301.4960
+    },
+    {
+      "id": "KHGX",
+      "name": "HOUSTON",
+      "state": "TX",
+      "lat": 29.4719,
+      "lon": -95.078733,
+      "altM": 35.0520
+    },
+    {
+      "id": "KHNX",
+      "name": "SAN JOAQUIN VALLEY",
+      "state": "CA",
+      "lat": 36.314181,
+      "lon": -119.63213,
+      "altM": 103.6320
+    },
+    {
+      "id": "KHPX",
+      "name": "FORT CAMPBELL",
+      "state": "KY",
+      "lat": 36.736972,
+      "lon": -87.285583,
+      "altM": 186.8424
+    },
+    {
+      "id": "KHTX",
+      "name": "HUNTSVILLE",
+      "state": "AL",
+      "lat": 34.930556,
+      "lon": -86.083611,
+      "altM": 566.6232
+    },
+    {
+      "id": "KICT",
+      "name": "WICHITA",
+      "state": "KS",
+      "lat": 37.654444,
+      "lon": -97.443056,
+      "altM": 426.7200
+    },
+    {
+      "id": "KICX",
+      "name": "CEDAR CITY",
+      "state": "UT",
+      "lat": 37.59105,
+      "lon": -112.86218,
+      "altM": 3278.7336
+    },
+    {
+      "id": "KILN",
+      "name": "CINCINNATI",
+      "state": "OH",
+      "lat": 39.420483,
+      "lon": -83.82145,
+      "altM": 356.6160
+    },
+    {
+      "id": "KILX",
+      "name": "LINCOLN",
+      "state": "IL",
+      "lat": 40.1505,
+      "lon": -89.336792,
+      "altM": 222.8088
+    },
+    {
+      "id": "KIND",
+      "name": "INDIANAPOLIS",
+      "state": "IN",
+      "lat": 39.7075,
+      "lon": -86.280278,
+      "altM": 270.3576
+    },
+    {
+      "id": "KINX",
+      "name": "TULSA",
+      "state": "OK",
+      "lat": 36.175131,
+      "lon": -95.564161,
+      "altM": 228.2952
+    },
+    {
+      "id": "KIWA",
+      "name": "PHOENIX",
+      "state": "AZ",
+      "lat": 33.289233,
+      "lon": -111.66991,
+      "altM": 434.6448
+    },
+    {
+      "id": "KIWX",
+      "name": "FORT WAYNE",
+      "state": "IN",
+      "lat": 41.358611,
+      "lon": -85.7,
+      "altM": 321.8688
+    },
+    {
+      "id": "KJAX",
+      "name": "JACKSONVILLE",
+      "state": "FL",
+      "lat": 30.484633,
+      "lon": -81.7019,
+      "altM": 48.7680
+    },
+    {
+      "id": "KJGX",
+      "name": "ROBINS AFB",
+      "state": "GA",
+      "lat": 32.675683,
+      "lon": -83.350833,
+      "altM": 188.3664
+    },
+    {
+      "id": "KJKL",
+      "name": "JACKSON",
+      "state": "KY",
+      "lat": 37.590833,
+      "lon": -83.313056,
+      "altM": 445.3128
+    },
+    {
+      "id": "KLBB",
+      "name": "LUBBOCK",
+      "state": "TX",
+      "lat": 33.654139,
+      "lon": -101.81416,
+      "altM": 1029.6144
+    },
+    {
+      "id": "KLCH",
+      "name": "LAKE CHARLES",
+      "state": "LA",
+      "lat": 30.125306,
+      "lon": -93.215889,
+      "altM": 41.7576
+    },
+    {
+      "id": "KLGX",
+      "name": "LANGLEY HILL NW WASHINGTON",
+      "state": "WA",
+      "lat": 47.116944,
+      "lon": -124.10666,
+      "altM": 111.5568
+    },
+    {
+      "id": "KLIX",
+      "name": "NEW ORLEANS",
+      "state": "LA",
+      "lat": 30.336667,
+      "lon": -89.825417,
+      "altM": 54.5592
+    },
+    {
+      "id": "KLNX",
+      "name": "NORTH PLATTE",
+      "state": "NE",
+      "lat": 41.957944,
+      "lon": -100.57622,
+      "altM": 948.8424
+    },
+    {
+      "id": "KLOT",
+      "name": "CHICAGO",
+      "state": "IL",
+      "lat": 41.604444,
+      "lon": -88.084444,
+      "altM": 231.6480
+    },
+    {
+      "id": "KLRX",
+      "name": "ELKO",
+      "state": "NV",
+      "lat": 40.73955,
+      "lon": -116.8027,
+      "altM": 2101.5960
+    },
+    {
+      "id": "KLSX",
+      "name": "ST LOUIS",
+      "state": "MO",
+      "lat": 38.698611,
+      "lon": -90.682778,
+      "altM": 220.0656
+    },
+    {
+      "id": "KLTX",
+      "name": "WILMINGTON",
+      "state": "NC",
+      "lat": 33.98915,
+      "lon": -78.429108,
+      "altM": 44.1960
+    },
+    {
+      "id": "KLVX",
+      "name": "LOUISVILLE",
+      "state": "KY",
+      "lat": 37.975278,
+      "lon": -85.943889,
+      "altM": 253.8984
+    },
+    {
+      "id": "KLWX",
+      "name": "STERLING",
+      "state": "VA",
+      "lat": 38.976111,
+      "lon": -77.4875,
+      "altM": 123.1392
+    },
+    {
+      "id": "KLZK",
+      "name": "LITTLE ROCK",
+      "state": "AR",
+      "lat": 34.8365,
+      "lon": -92.262194,
+      "altM": 197.8152
+    },
+    {
+      "id": "KMAF",
+      "name": "MIDLAND ODESSA",
+      "state": "TX",
+      "lat": 31.943461,
+      "lon": -102.18925,
+      "altM": 902.8176
+    },
+    {
+      "id": "KMAX",
+      "name": "MEDFORD",
+      "state": "OR",
+      "lat": 42.081169,
+      "lon": -122.71736,
+      "altM": 2304.5928
+    },
+    {
+      "id": "KMBX",
+      "name": "MINOT AFB",
+      "state": "ND",
+      "lat": 48.393056,
+      "lon": -100.86444,
+      "altM": 484.6320
+    },
+    {
+      "id": "KMHX",
+      "name": "MOREHEAD CITY",
+      "state": "NC",
+      "lat": 34.775908,
+      "lon": -76.876189,
+      "altM": 44.1960
+    },
+    {
+      "id": "KMKX",
+      "name": "MILWAUKEE",
+      "state": "WI",
+      "lat": 42.9679,
+      "lon": -88.550667,
+      "altM": 311.8104
+    },
+    {
+      "id": "KMLB",
+      "name": "MELBOURNE",
+      "state": "FL",
+      "lat": 28.113194,
+      "lon": -80.654083,
+      "altM": 45.4152
+    },
+    {
+      "id": "KMOB",
+      "name": "MOBILE",
+      "state": "AL",
+      "lat": 30.679444,
+      "lon": -88.24,
+      "altM": 88.0872
+    },
+    {
+      "id": "KMPX",
+      "name": "MINNEAPOLIS",
+      "state": "MN",
+      "lat": 44.848889,
+      "lon": -93.565528,
+      "altM": 335.5848
+    },
+    {
+      "id": "KMQT",
+      "name": "MARQUETTE",
+      "state": "MI",
+      "lat": 46.531111,
+      "lon": -87.548333,
+      "altM": 464.8200
+    },
+    {
+      "id": "KMRX",
+      "name": "KNOXVILLE",
+      "state": "TN",
+      "lat": 36.168611,
+      "lon": -83.401944,
+      "altM": 437.0832
+    },
+    {
+      "id": "KMSX",
+      "name": "MISSOULA",
+      "state": "MT",
+      "lat": 47.041,
+      "lon": -113.98622,
+      "altM": 2431.6944
+    },
+    {
+      "id": "KMTX",
+      "name": "SALT LAKE CITY",
+      "state": "UT",
+      "lat": 41.262778,
+      "lon": -112.44777,
+      "altM": 2009.8512
+    },
+    {
+      "id": "KMUX",
+      "name": "SAN FRANCISCO",
+      "state": "CA",
+      "lat": 37.155222,
+      "lon": -121.89844,
+      "altM": 1082.0400
+    },
+    {
+      "id": "KMVX",
+      "name": "GRAND FORKS",
+      "state": "ND",
+      "lat": 47.527778,
+      "lon": -97.325556,
+      "altM": 330.0984
+    },
+    {
+      "id": "KMXX",
+      "name": "MAXWELL AFB",
+      "state": "AL",
+      "lat": 32.53665,
+      "lon": -85.78975,
+      "altM": 170.6880
+    },
+    {
+      "id": "KNKX",
+      "name": "SAN DIEGO",
+      "state": "CA",
+      "lat": 32.919017,
+      "lon": -117.0418,
+      "altM": 320.6496
+    },
+    {
+      "id": "KNQA",
+      "name": "MEMPHIS",
+      "state": "TN",
+      "lat": 35.344722,
+      "lon": -89.873333,
+      "altM": 132.5880
+    },
+    {
+      "id": "KOAX",
+      "name": "OMAHA",
+      "state": "NE",
+      "lat": 41.320369,
+      "lon": -96.366819,
+      "altM": 384.6576
+    },
+    {
+      "id": "KOHX",
+      "name": "NASHVILLE",
+      "state": "TN",
+      "lat": 36.247222,
+      "lon": -86.5625,
+      "altM": 206.0448
+    },
+    {
+      "id": "KOKX",
+      "name": "NEW YORK CITY",
+      "state": "NY",
+      "lat": 40.865528,
+      "lon": -72.863917,
+      "altM": 60.6552
+    },
+    {
+      "id": "KOTX",
+      "name": "SPOKANE",
+      "state": "WA",
+      "lat": 47.680417,
+      "lon": -117.62677,
+      "altM": 746.4552
+    },
+    {
+      "id": "KOUN",
+      "name": "NORMAN NSSL",
+      "state": "OK",
+      "lat": 35.236058,
+      "lon": -97.46235,
+      "altM": 391.3632
+    },
+    {
+      "id": "KPAH",
+      "name": "PADUCAH",
+      "state": "KY",
+      "lat": 37.068333,
+      "lon": -88.771944,
+      "altM": 154.2288
+    },
+    {
+      "id": "KPBZ",
+      "name": "PITTSBURGH",
+      "state": "PA",
+      "lat": 40.531717,
+      "lon": -80.217967,
+      "altM": 385.8768
+    },
+    {
+      "id": "KPDT",
+      "name": "PENDLETON",
+      "state": "OR",
+      "lat": 45.69065,
+      "lon": -118.85293,
+      "altM": 481.5840
+    },
+    {
+      "id": "KPOE",
+      "name": "FORT POLK",
+      "state": "LA",
+      "lat": 31.155278,
+      "lon": -92.976111,
+      "altM": 144.1704
+    },
+    {
+      "id": "KPUX",
+      "name": "PUEBLO",
+      "state": "CO",
+      "lat": 38.45955,
+      "lon": -104.18135,
+      "altM": 1634.6424
+    },
+    {
+      "id": "KRAX",
+      "name": "RALEIGH DURHAM",
+      "state": "NC",
+      "lat": 35.665519,
+      "lon": -78.48975,
+      "altM": 140.8176
+    },
+    {
+      "id": "KRGX",
+      "name": "RENO",
+      "state": "NV",
+      "lat": 39.754056,
+      "lon": -119.46202,
+      "altM": 2559.1008
+    },
+    {
+      "id": "KRIW",
+      "name": "RIVERTON",
+      "state": "WY",
+      "lat": 43.066089,
+      "lon": -108.4773,
+      "altM": 1716.9384
+    },
+    {
+      "id": "KRLX",
+      "name": "CHARLESTON",
+      "state": "WV",
+      "lat": 38.311111,
+      "lon": -81.722778,
+      "altM": 369.7224
+    },
+    {
+      "id": "KRTX",
+      "name": "PORTLAND",
+      "state": "OR",
+      "lat": 45.715039,
+      "lon": -122.965,
+      "altM": 526.6944
+    },
+    {
+      "id": "KSFX",
+      "name": "POCATELLO",
+      "state": "ID",
+      "lat": 43.1056,
+      "lon": -112.68613,
+      "altM": 1383.4872
+    },
+    {
+      "id": "KSGF",
+      "name": "SPRINGFIELD",
+      "state": "MO",
+      "lat": 37.235239,
+      "lon": -93.400419,
+      "altM": 419.1000
+    },
+    {
+      "id": "KSHV",
+      "name": "SHREVEPORT",
+      "state": "LA",
+      "lat": 32.450833,
+      "lon": -93.84125,
+      "altM": 117.9576
+    },
+    {
+      "id": "KSJT",
+      "name": "SAN ANGELO",
+      "state": "TX",
+      "lat": 31.371278,
+      "lon": -100.4925,
+      "altM": 610.8192
+    },
+    {
+      "id": "KSOX",
+      "name": "SANTA ANA MOUNTAINS",
+      "state": "CA",
+      "lat": 33.817733,
+      "lon": -117.636,
+      "altM": 946.7088
+    },
+    {
+      "id": "KSRX",
+      "name": "FORT SMITH",
+      "state": "AR",
+      "lat": 35.290417,
+      "lon": -94.361889,
+      "altM": 224.6376
+    },
+    {
+      "id": "KTBW",
+      "name": "TAMPA",
+      "state": "FL",
+      "lat": 27.7055,
+      "lon": -82.401778,
+      "altM": 37.1856
+    },
+    {
+      "id": "KTFX",
+      "name": "GREAT FALLS",
+      "state": "MT",
+      "lat": 47.459583,
+      "lon": -111.38533,
+      "altM": 1159.7640
+    },
+    {
+      "id": "KTLH",
+      "name": "TALLAHASSEE",
+      "state": "FL",
+      "lat": 30.397583,
+      "lon": -84.328944,
+      "altM": 53.9496
+    },
+    {
+      "id": "KTLX",
+      "name": "OKLAHOMA CITY",
+      "state": "OK",
+      "lat": 35.333361,
+      "lon": -97.277761,
+      "altM": 389.5344
+    },
+    {
+      "id": "KTWX",
+      "name": "TOPEKA",
+      "state": "KS",
+      "lat": 38.99695,
+      "lon": -96.23255,
+      "altM": 431.2920
+    },
+    {
+      "id": "KTYX",
+      "name": "FORT DRUM",
+      "state": "NY",
+      "lat": 43.755694,
+      "lon": -75.679861,
+      "altM": 597.4080
+    },
+    {
+      "id": "KUDX",
+      "name": "RAPID CITY",
+      "state": "SD",
+      "lat": 44.124722,
+      "lon": -102.83,
+      "altM": 973.8360
+    },
+    {
+      "id": "KUEX",
+      "name": "HASTINGS",
+      "state": "NE",
+      "lat": 40.320833,
+      "lon": -98.441944,
+      "altM": 626.9736
+    },
+    {
+      "id": "KVAX",
+      "name": "MOODY AFB",
+      "state": "GA",
+      "lat": 30.890278,
+      "lon": -83.001806,
+      "altM": 100.5840
+    },
+    {
+      "id": "KVBX",
+      "name": "VANDENBERG AFB",
+      "state": "CA",
+      "lat": 34.83855,
+      "lon": -120.39791,
+      "altM": 412.6992
+    },
+    {
+      "id": "KVNX",
+      "name": "VANCE AFB",
+      "state": "OK",
+      "lat": 36.740617,
+      "lon": -98.127717,
+      "altM": 383.4384
+    },
+    {
+      "id": "KVTX",
+      "name": "LOS ANGELES",
+      "state": "CA",
+      "lat": 34.412017,
+      "lon": -119.17875,
+      "altM": 855.5736
+    },
+    {
+      "id": "KVWX",
+      "name": "EVANSVILLE",
+      "state": "IN",
+      "lat": 38.26025,
+      "lon": -87.724528,
+      "altM": 190.5000
+    },
+    {
+      "id": "KYUX",
+      "name": "YUMA",
+      "state": "AZ",
+      "lat": 32.495281,
+      "lon": -114.65671,
+      "altM": 72.8472
+    },
+    {
+      "id": "LPLA",
+      "name": "LAJES AB",
+      "state": "",
+      "lat": 38.73028,
+      "lon": -27.32167,
+      "altM": 1016.2032
+    },
+    {
+      "id": "PABC",
+      "name": "BETHEL FAA",
+      "state": "AK",
+      "lat": 60.791944,
+      "lon": -161.87638,
+      "altM": 58.8264
+    },
+    {
+      "id": "PACG",
+      "name": "SITKA",
+      "state": "AK",
+      "lat": 56.852778,
+      "lon": -135.52916,
+      "altM": 82.9056
+    },
+    {
+      "id": "PAEC",
+      "name": "NOME",
+      "state": "AK",
+      "lat": 64.511389,
+      "lon": -165.295,
+      "altM": 27.4320
+    },
+    {
+      "id": "PAHG",
+      "name": "ANCHORAGE",
+      "state": "AK",
+      "lat": 60.725914,
+      "lon": -151.35146,
+      "altM": 108.5088
+    },
+    {
+      "id": "PAIH",
+      "name": "MIDDLETON ISLAND",
+      "state": "AK",
+      "lat": 59.460767,
+      "lon": -146.30344,
+      "altM": 40.2336
+    },
+    {
+      "id": "PAKC",
+      "name": "KING SALMON",
+      "state": "AK",
+      "lat": 58.679444,
+      "lon": -156.62944,
+      "altM": 43.8912
+    },
+    {
+      "id": "PAPD",
+      "name": "FAIRBANKS",
+      "state": "AK",
+      "lat": 65.035114,
+      "lon": -147.50143,
+      "altM": 825.0936
+    },
+    {
+      "id": "PGUA",
+      "name": "ANDERSEN AFB AGANA",
+      "state": "GU",
+      "lat": 13.455833,
+      "lon": 144.811111,
+      "altM": 117.6528
+    },
+    {
+      "id": "PHKI",
+      "name": "SOUTH KAUAI",
+      "state": "HI",
+      "lat": 21.893889,
+      "lon": -159.5525,
+      "altM": 103.6320
+    },
+    {
+      "id": "PHKM",
+      "name": "KAMUELA",
+      "state": "HI",
+      "lat": 20.125278,
+      "lon": -155.77777,
+      "altM": 1208.8368
+    },
+    {
+      "id": "PHMO",
+      "name": "MOLOKAI",
+      "state": "HI",
+      "lat": 21.132778,
+      "lon": -157.18027,
+      "altM": 440.1312
+    },
+    {
+      "id": "PHWA",
+      "name": "SOUTH SHORE",
+      "state": "HI",
+      "lat": 19.095,
+      "lon": -155.56888,
+      "altM": 445.3128
+    },
+    {
+      "id": "RKJK",
+      "name": "KUNSAN",
+      "state": "",
+      "lat": 35.924167,
+      "lon": 126.622222,
+      "altM": 58.5216
+    },
+    {
+      "id": "RKSG",
+      "name": "CAMP HUMPHREYS",
+      "state": "",
+      "lat": 37.207569,
+      "lon": 127.285561,
+      "altM": 463.6008
+    },
+    {
+      "id": "RODN",
+      "name": "KADENA",
+      "state": "",
+      "lat": 26.3078,
+      "lon": 127.903469,
+      "altM": 125.5776
+    },
+    {
+      "id": "TJUA",
+      "name": "SAN JUAN",
+      "state": "PR",
+      "lat": 18.115667,
+      "lon": -66.078167,
+      "altM": 901.5984
+    }
+  ]
+}

@@ -47,3 +47,13 @@ site/take-poster.png
 
 # mise per-machine overrides
 mise.local.toml
+
+# Mobile web build and local execution artifacts
+node_modules/
+.next/
+playwright-report/
+test-results/
+.superpowers/
+*.tsbuildinfo
+.env.local
+services/radar/state/
