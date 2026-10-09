@@ -17,5 +17,4 @@ ENV PORT=8080 RADAR_STATE_DIR=/data
 RUN mkdir -p /data && chown node:node /data
 USER node
 EXPOSE 8080
-VOLUME ["/data"]
 CMD ["node", "--experimental-strip-types", "services/radar/src/main.ts"]
